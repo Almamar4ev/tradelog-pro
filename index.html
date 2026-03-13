@@ -2442,6 +2442,12 @@ function initApp() {
     try { renderSidebar(); } catch(e) {}
     try { renderMain(); } catch(e) {}
     hideLoader();
+
+    // Register service worker for offline use
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/tradelog-pro/sw.js')
+        .catch(function(e){ console.log('SW reg failed:', e); });
+    }
   });
 }
 

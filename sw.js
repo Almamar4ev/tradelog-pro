@@ -1,10 +1,10 @@
 var CACHE = 'tradelog-pro-v4';
 var ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
+  '/tradelog-pro/',
+  '/tradelog-pro/index.html',
+  '/tradelog-pro/manifest.json',
+  '/tradelog-pro/icon-192.png',
+  '/tradelog-pro/icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
