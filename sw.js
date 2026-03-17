@@ -1,4 +1,4 @@
-var CACHE = 'tradelog-pro-v4';
+var CACHE = 'tradelog-pro-v6';
 var ASSETS = [
   '/tradelog-pro/',
   '/tradelog-pro/index.html',
@@ -12,24 +12,45 @@ var ASSETS = [
 ];
 
 self.addEventListener('install', function(e) {
+  // Force immediate activation - skip waiting
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(function(cache) {
       return Promise.allSettled(ASSETS.map(function(url) {
         return cache.add(url).catch(function() {});
       }));
-    }).then(function() { return self.skipWaiting(); })
+    })
   );
 });
 
 self.addEventListener('activate', function(e) {
+  // Delete ALL old caches immediately
   e.waitUntil(
     caches.keys().then(function(keys) {
-      return Promise.all(keys.filter(function(k){ return k !== CACHE; }).map(function(k){ return caches.delete(k); }));
-    }).then(function() { return self.clients.claim(); })
+      return Promise.all(
+        keys.map(function(k) { return caches.delete(k); })
+      );
+    }).then(function() {
+      return self.clients.claim();
+    })
   );
 });
 
 self.addEventListener('fetch', function(e) {
+  // Network first for HTML - always get fresh version
+  if (e.request.url.indexOf('.html') >= 0 || e.request.url.endsWith('/tradelog-pro/') || e.request.url.endsWith('/tradelog-pro')) {
+    e.respondWith(
+      fetch(e.request).then(function(response) {
+        var clone = response.clone();
+        caches.open(CACHE).then(function(cache){ cache.put(e.request, clone); });
+        return response;
+      }).catch(function() {
+        return caches.match(e.request);
+      })
+    );
+    return;
+  }
+  // Cache first for other assets
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;

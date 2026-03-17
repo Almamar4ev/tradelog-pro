@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TradeLog Pro">
+<meta name="theme-color" content="#07090f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>TradeLog Pro</title>
-<link rel="manifest" href="/tradelog-pro/manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -544,586 +548,13 @@ textarea{resize:vertical;min-height:70px;}
 </style>
 </head>
 <body>
-</head>
-<body>
-
-
-<!-- LOADING SCREEN -->
-<div id="loadingScreen">
-  <div style="font-size:36px">📈</div>
-  <div class="loader-ring"></div>
-  <p style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:2px">LOADING TRADELOG PRO…</p>
-</div>
-
-<div class="app-shell">
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-mark">TL // PRO</div>
-      <div class="logo-name">TradeLog Pro</div>
-    </div>
-    <div class="sidebar-section">Navigation</div>
-    <div class="nav-item active" onclick="setView('dashboard')" id="nav-dashboard"><span class="icon">📊</span>Dashboard</div>
-    <div class="nav-item" onclick="setView('trades')" id="nav-trades"><span class="icon">📋</span>Trade Log</div>
-    <div class="nav-item" onclick="setView('calendar')" id="nav-calendar"><span class="icon">📅</span>Calendar</div>
-    <div class="nav-item" onclick="setView('calculators')" id="nav-calculators"><span class="icon">🧮</span>Calculators</div>
-    <div class="nav-item" onclick="setView('accounts')" id="nav-accounts"><span class="icon">👤</span>Accounts</div>
-    <div class="sidebar-section">Accounts</div>
-    <div class="accounts-list" id="sidebarAccounts"></div>
-    <button class="add-account-btn" onclick="openAccountModal()"><span>＋</span>New Account</button>
-  </aside>
-
-  <div class="main">
-    <div class="topbar">
-      <div class="topbar-left" style="display:flex;align-items:center;gap:10px">
-        <button onclick="openDrawer()" style="background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">&#9776;</button>
-        <span class="page-title" id="topbarTitle">Dashboard</span>
-      </div>
-      <div class="topbar-right">
-        <span id="topbarAccountBadge"></span>
-        <button class="btn btn-green btn-sm keep-mobile" onclick="openTradeModal(null)">＋ Log</button>
-      </div>
-    </div>
-    <div class="content" id="mainContent"></div>
-  </div>
-</div>
-
-<!-- BOTTOM NAV -->
-<nav class="bottom-nav">
-  <button class="bottom-nav-item active" id="bnav-dashboard" onclick="setView('dashboard')"><span class="bnav-icon">📊</span><span>Dashboard</span></button>
-  <button class="bottom-nav-item" id="bnav-trades" onclick="setView('trades')"><span class="bnav-icon">📋</span><span>Trades</span></button>
-  <button class="bottom-nav-item" id="bnav-calendar" onclick="setView('calendar')"><span class="bnav-icon">📅</span><span>Calendar</span></button>
-  <button class="bottom-nav-item" id="bnav-calculators" onclick="setView('calculators')"><span class="bnav-icon">🧮</span><span>Calc</span></button>
-  <button class="bottom-nav-item" id="bnav-analytics" onclick="setView('analytics')"><span class="bnav-icon">📊</span><span>Analytics</span></button>
-  <button class="bottom-nav-item" id="bnav-accounts" onclick="setView('accounts')"><span class="bnav-icon">👤</span><span>Accounts</span></button>
-  <button class="bottom-nav-item" onclick="toggleTheme()"><span class="bnav-icon" id="themeBtnNav">🌙</span><span>Theme</span></button>
-</nav>
-<button class="fab-btn" id="fabBtn" onclick="openTradeModal(null)">＋</button>
-
-<!-- ════════════════════════════════════════
-     TRADE MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="tradeModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="tradeModalTitle">Log New Trade</div>
-      <button class="modal-close" onclick="cancelTradeModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <!-- TEMPLATES SECTION -->
-      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3)">TEMPLATES</span>
-          <button type="button" onclick="saveAsTemplate()" style="padding:6px 14px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">💾 Save as Template</button>
-        </div>
-        <div id="templateButtons" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px">
-          <span style="font-size:11px;color:var(--text3)">No templates yet</span>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="section-divider">Required</div>
-        <div class="field form-full">
-          <label>Account <span class="req">*</span></label>
-          <select id="f_account" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px;width:100%;font-size:14px"></select>
-        </div>
-        <div class="field">
-          <label>Stock / Symbol <span class="req">*</span></label>
-          <input id="f_ticker" type="text" placeholder="AAPL, BTC/USD…" autocomplete="off" list="tickerSuggestions" oninput="this.value=this.value.toUpperCase()">
-        <datalist id="tickerSuggestions"></datalist>
-        </div>
-        <div class="field">
-          <label>Trade Status</label>
-          <select id="f_status" onchange="toggleExitFields()">
-            <option value="open">🟡 Open — Still Running</option>
-            <option value="closed">🟢 Closed — Complete</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Entry Date <span class="req">*</span></label>
-          <input id="f_entry_date" type="date">
-        </div>
-        <div class="field">
-          <label>Direction</label>
-          <select id="f_direction">
-            <option value="Long">Long</option>
-            <option value="Short">Short</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Entry Price <span class="req">*</span></label>
-          <input id="f_entry" type="number" step="0.0001" placeholder="0.00" oninput="calcInvestedPreview()">
-        </div>
-        <div class="field">
-          <label>Quantity / Shares <span class="req">*</span></label>
-          <input id="f_qty" type="number" step="0.0001" placeholder="0" oninput="calcInvestedPreview()">
-        </div>
-        <div class="field form-full" id="investedPreviewField" style="display:none">
-          <div class="calc-result-box" style="padding:10px 14px;margin-top:0">
-            <div class="calc-result-row" style="padding:0">
-              <span class="calc-result-label">Invested Value</span>
-              <span class="calc-result-value" id="investedPreviewVal" style="color:var(--blue)">$0.00</span>
-            </div>
-          </div>
-        </div>
-        <div class="field" id="exitDateField" style="display:none">
-          <label>Exit Date <span class="req">*</span></label>
-          <input id="f_exit_date" type="date">
-        </div>
-        <div class="field" id="exitPriceField" style="display:none">
-          <label>Exit Price <span class="req">*</span></label>
-          <input id="f_exit" type="number" step="0.0001" placeholder="0.00">
-        </div>
-        <div class="section-divider">Optional</div>
-        <div class="field">
-          <label>Brokerage / Fees <span class="opt">(optional)</span></label>
-          <div class="input-with-select">
-            <select id="f_fees_mode">
-              <option value="%">% of P&L</option>
-              <option value="$">$ Value</option>
-            </select>
-            <input id="f_fees" type="number" step="0.0001" placeholder="0.00">
-          </div>
-          <span class="field-hint">% mode: deducted from P&L on winning trades</span>
-        </div>
-        <div class="field">
-          <label>Trade Type <span class="opt">(optional)</span></label>
-          <select id="f_type">
-            <option value="">Select type…</option>
-            <option>Day Trade</option><option>Swing Trade</option><option>Scalp</option>
-            <option>Position</option><option>Options</option><option>Futures</option><option>Crypto</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Risk ($) <span class="opt">(optional)</span></label>
-          <input id="f_risk" type="number" step="0.01" placeholder="0.00">
-        </div>
-        <div class="field form-full">
-          <label>Notes / Setup <span class="opt">(optional)</span></label>
-          <textarea id="f_notes" placeholder="Describe your setup, reasoning…"></textarea>
-        </div>
-        <div class="field form-full">
-          <label>Trade Screenshots <span class="opt">(optional)</span></label>
-          <div class="photo-upload-area" onclick="document.getElementById('f_photos').click()">
-            <div style="font-size:22px">📷</div>
-            <p>Click to upload charts or screenshots (max 5MB each)</p>
-          </div>
-          <input type="file" id="f_photos" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(this)">
-          <div class="photo-previews" id="photoPreviews"></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="cancelTradeModal()">Cancel</button>
-      <button class="btn btn-green" onclick="saveTradeModal()">💾 Save Trade</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     PARTIAL CLOSE MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="partialCloseModal">
-  <div class="modal narrow">
-    <div class="modal-header">
-      <div class="modal-title" id="partialCloseTitle">Close / Partial Close</div>
-      <button class="modal-close" onclick="cancelSubModal('partialCloseModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="partialCloseInfo" style="margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;"></div>
-      <div class="form-grid">
-        <div class="field">
-          <label>Shares to Close <span class="req">*</span></label>
-          <input id="pc_qty" type="number" step="0.0001" placeholder="0" oninput="updatePartialPreview()">
-        </div>
-        <div class="field">
-          <label>Exit Price <span class="req">*</span></label>
-          <input id="pc_price" type="number" step="0.0001" placeholder="0.00" oninput="updatePartialPreview()">
-        </div>
-        <div class="field">
-          <label>Exit Date <span class="req">*</span></label>
-          <input id="pc_date" type="date">
-        </div>
-        <div class="field">
-          <label>Fees <span class="opt">(optional)</span></label>
-          <div class="input-with-select">
-            <select id="pc_fees_mode" onchange="updatePartialPreview()">
-              <option value="%">% of P&L</option>
-              <option value="$">$ Value</option>
-            </select>
-            <input id="pc_fees" type="number" step="0.0001" placeholder="0.00" oninput="updatePartialPreview()">
-          </div>
-        </div>
-        <div class="field form-full" id="partialPreview"></div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="cancelSubModal('partialCloseModal')">Cancel</button>
-      <button class="btn btn-green" onclick="savePartialClose()">✅ Confirm Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     ADD BUY MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="addBuyModal">
-  <div class="modal narrow">
-    <div class="modal-header">
-      <div class="modal-title" id="addBuyTitle">Add to Position</div>
-      <button class="modal-close" onclick="cancelSubModal('addBuyModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="addBuyInfo" style="margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;"></div>
-      <div class="form-grid">
-        <div class="field">
-          <label>Additional Shares <span class="req">*</span></label>
-          <input id="ab_qty" type="number" step="0.0001" placeholder="0" oninput="updateAddBuyPreview()">
-        </div>
-        <div class="field">
-          <label>Buy Price <span class="req">*</span></label>
-          <input id="ab_price" type="number" step="0.0001" placeholder="0.00" oninput="updateAddBuyPreview()">
-        </div>
-        <div class="field">
-          <label>Date <span class="req">*</span></label>
-          <input id="ab_date" type="date">
-        </div>
-        <div class="field">
-          <label>Fees <span class="opt">(optional)</span></label>
-          <input id="ab_fees" type="number" step="0.01" placeholder="0.00">
-        </div>
-        <div class="field form-full" id="addBuyPreview"></div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="cancelSubModal('addBuyModal')">Cancel</button>
-      <button class="btn btn-gold" onclick="saveAddBuy()">＋ Add to Position</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     ACCOUNT MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="accountModal">
-  <div class="modal narrow">
-    <div class="modal-header">
-      <div class="modal-title" id="accountModalTitle">New Account</div>
-      <button class="modal-close" onclick="closeModal('accountModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="field"><label>Account Name <span class="req">*</span></label><input id="f_acc_name" type="text" placeholder="e.g. Main, Crypto…"></div>
-        <div class="field"><label>Capital <span class="opt">(optional)</span></label><input id="f_acc_capital" type="number" step="0.01" placeholder="10000.00"></div>
-        <div class="field"><label>Broker / Platform <span class="opt">(optional)</span></label><input id="acc_broker" type="text" placeholder="e.g. Binance, TD…"></div>
-        <div id="accTransactionSection" style="display:none">
-          <div style="margin-bottom:8px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase">Deposit / Withdraw</div>
-          <div style="display:flex;flex-direction:row;gap:8px;margin-bottom:10px">
-            <button type="button" onclick="accTransaction('deposit')" style="flex:1;padding:10px;background:var(--green);color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+ Deposit</button>
-            <button type="button" onclick="accTransaction('withdraw')" style="flex:1;padding:10px;background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">− Withdraw</button>
-          </div>
-          <div id="accTransactionForm" style="display:none">
-            <div class="field">
-              <label id="accTransactionLabel">Amount</label>
-              <input id="f_acc_transaction" type="number" step="0.01" placeholder="0.00">
-            </div>
-            <button type="button" onclick="confirmTransaction()" style="width:100%;margin-top:8px;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Confirm</button>
-          </div>
-          <div id="accTransactionHistory"></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('accountModal')">Cancel</button>
-      <button class="btn btn-primary" id="accSaveBtn" onclick="saveAccount()">Create Account</button>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     REPORT MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="reportModal">
-  <div class="modal wide">
-    <div class="modal-header">
-      <div class="modal-title">📄 Export Trading Report</div>
-      <button class="modal-close" onclick="closeModal('reportModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
-        <div class="field"><label>Date From</label><input id="rep_from" type="date" onchange="updateReportPreview()"></div>
-        <div class="field"><label>Date To</label><input id="rep_to" type="date" onchange="updateReportPreview()"></div>
-        <div class="field"><label>Account</label>
-          <select id="rep_account" onchange="updateReportPreview()"><option value="all">All Accounts</option></select>
-        </div>
-      </div>
-      <div id="reportPreviewStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:10px;font-weight:600">Export Format</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-secondary" style="flex:1;justify-content:center;font-size:14px" onclick="exportExcel()">📊 Excel (.xlsx)</button>
-        <button class="btn btn-secondary" style="flex:1;justify-content:center;font-size:14px" onclick="exportPDF()">📄 PDF</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     TRADE DETAIL MODAL
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="tradeDetailModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="detailModalTitle">Trade Details</div>
-      <button class="modal-close" onclick="closeModal('tradeDetailModal')">✕</button>
-    </div>
-    <div class="modal-body" id="tradeDetailBody"></div>
-    <div class="modal-footer" id="tradeDetailFooter"></div>
-  </div>
-</div>
-
-<!-- LIGHTBOX -->
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close">✕</button>
-  <img id="lightboxImg" src="" alt="">
-</div>
-
-<!-- SIDE DRAWER -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
-<div class="drawer" id="sideDrawer">
-  <!-- Profile Header -->
-  <div class="drawer-profile">
-    <div class="drawer-avatar" id="drawerAvatar">T</div>
-    <div>
-      <div class="drawer-name" id="drawerName">TradeLog Pro</div>
-      <div class="drawer-email" id="drawerEmail">Your trading journal</div>
-    </div>
-  </div>
-
-  <!-- Navigation -->
-  <div class="drawer-section">Navigation</div>
-  <button class="drawer-item" onclick="closeDrawer();setView('dashboard')">
-    <span class="drawer-item-icon">📊</span><span>Dashboard</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('trades')">
-    <span class="drawer-item-icon">📋</span><span>Trade Log</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('calendar')">
-    <span class="drawer-item-icon">📅</span><span>P&amp;L Calendar</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('analytics')">
-    <span class="drawer-item-icon">📈</span><span>Analytics</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('calculators')">
-    <span class="drawer-item-icon">🧮</span><span>Calculators</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('accounts')">
-    <span class="drawer-item-icon">👤</span><span>Accounts</span>
-  </button>
-
-  <div class="drawer-divider"></div>
-
-  <!-- Settings -->
-  <div class="drawer-section">Preferences</div>
-  <button class="drawer-item" onclick="closeDrawer();openProfileModal()">
-    <span class="drawer-item-icon">👤</span><span>Edit Profile</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();setView('accounts')">
-    <span class="drawer-item-icon">⚙️</span><span>Settings</span>
-  </button>
-  <button class="drawer-item" onclick="toggleTheme()">
-    <span class="drawer-item-icon">🌙</span><span id="drawerThemeLabel">Toggle Theme</span>
-  </button>
-
-  <div class="drawer-divider"></div>
-
-  <!-- App -->
-  <div class="drawer-section">App</div>
-  <button class="drawer-item" onclick="closeDrawer();openFeedbackModal()">
-    <span class="drawer-item-icon">💬</span><span>Send Feedback</span>
-  </button>
-  <button class="drawer-item" onclick="shareApp()">
-    <span class="drawer-item-icon">🔗</span><span>Share App</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();backupData()">
-    <span class="drawer-item-icon">💾</span><span>Backup Data</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();openReportModal()">
-    <span class="drawer-item-icon">📄</span><span>Export Report</span>
-  </button>
-  <button class="drawer-item" onclick="closeDrawer();openFormulasModal()">
-    <span class="drawer-item-icon">📐</span><span>Formulas &amp; Definitions</span>
-  </button>
-
-  <div class="drawer-footer">TradeLog Pro v1.0<br>Built for serious traders</div>
-</div>
-
-<!-- PROFILE MODAL -->
-<div class="modal-overlay" id="profileModal">
-  <div class="modal narrow">
-    <div class="modal-header">
-      <div class="modal-title">👤 Your Profile</div>
-      <button class="modal-close" onclick="closeModal('profileModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff;margin:0 auto 10px" id="profileAvatarBig">T</div>
-      </div>
-      <div class="field"><label>Your Name</label><input id="prof_name" type="text" placeholder="e.g. Yousuf Al-Mamari"></div>
-      <div class="field"><label>Email <span class="opt">(optional)</span></label><input id="prof_email" type="email" placeholder="e.g. you@email.com"></div>
-      <div class="field"><label>Trading Since</label><input id="prof_since" type="text" placeholder="e.g. 2022"></div>
-      <div class="field"><label>Favorite Market</label><input id="prof_market" type="text" placeholder="e.g. Stocks, Crypto, Forex"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('profileModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
-    </div>
-  </div>
-</div>
-
-<!-- FEEDBACK MODAL -->
-<div class="modal-overlay" id="feedbackModal">
-  <div class="modal narrow">
-    <div class="modal-header">
-      <div class="modal-title">💬 Send Feedback</div>
-      <button class="modal-close" onclick="closeModal('feedbackModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field"><label>Type</label>
-        <select id="fb_type" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px;width:100%;font-size:14px">
-          <option value="bug">🐛 Bug Report</option>
-          <option value="feature">✨ Feature Request</option>
-          <option value="other">💬 General Feedback</option>
-        </select>
-      </div>
-      <div class="field"><label>Message</label>
-        <textarea id="fb_message" rows="5" placeholder="Describe your feedback..." style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:10px;font-size:14px;font-family:var(--sans);resize:vertical"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('feedbackModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitFeedback()">Send</button>
-    </div>
-  </div>
-</div>
-
-<!-- FORMULAS MODAL -->
-<div class="modal-overlay" id="formulasModal">
-  <div class="modal wide" style="max-height:90dvh">
-    <div class="modal-header">
-      <div class="modal-title">📐 Formulas &amp; Definitions</div>
-      <button class="modal-close" onclick="closeModal('formulasModal')">✕</button>
-    </div>
-    <div class="modal-body" style="overflow-y:auto;max-height:70dvh">
-
-      <!-- ANALYTICS DEFINITIONS -->
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--blue);margin-bottom:12px;text-transform:uppercase;font-weight:700">📊 Analytics Definitions</div>
-
-      <div class="formula-card">
-        <div class="formula-name">Win Rate</div>
-        <div class="formula-formula">Win Rate = (Winning Trades ÷ Total Closed Trades) × 100</div>
-        <div class="formula-desc">Percentage of your trades that were profitable. 50%+ is generally considered good, but must be evaluated alongside R:R.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Risk : Reward (R:R)</div>
-        <div class="formula-formula">R:R = Average Win ÷ Average Loss</div>
-        <div class="formula-desc">How much you gain vs how much you risk. A ratio of 2:1 means you make $2 for every $1 you risk. Even a 40% win rate can be profitable with a good R:R.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Profit Factor</div>
-        <div class="formula-formula">Profit Factor = Gross Profit ÷ Gross Loss</div>
-        <div class="formula-desc">Above 1.0 = profitable system. Above 1.5 = good. Above 2.0 = excellent. Below 1.0 = losing money overall.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">ROI (Return on Investment)</div>
-        <div class="formula-formula">ROI = (Net P&amp;L ÷ Total Invested) × 100</div>
-        <div class="formula-desc">How much you earned relative to what you invested. Expressed as a percentage.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Net P&amp;L</div>
-        <div class="formula-formula">Net P&amp;L = Gross P&amp;L − Fees</div>
-        <div class="formula-desc">Your actual profit or loss after subtracting all brokerage fees and commissions.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Avg Entry Price (Dollar Cost Averaging)</div>
-        <div class="formula-formula">Avg Entry = Total Cost ÷ Total Shares<br>Total Cost = Σ (Price × Qty) for each buy</div>
-        <div class="formula-desc">When you buy the same stock multiple times at different prices, your average entry is the weighted average across all purchases.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Unrealized P&amp;L</div>
-        <div class="formula-formula">Unrealized P&amp;L = (Current Price − Avg Entry) × Remaining Shares × Direction</div>
-        <div class="formula-desc">P&amp;L on positions still open. Direction = +1 for Long, −1 for Short. Not realized until you close.</div>
-      </div>
-
-      <!-- CALCULATOR FORMULAS -->
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--green);margin:20px 0 12px;text-transform:uppercase;font-weight:700">🧮 Calculator Formulas</div>
-
-      <div class="formula-card">
-        <div class="formula-name">P&amp;L Calculator</div>
-        <div class="formula-formula">Gross P&amp;L = (Exit − Entry) × Qty<br>Net P&amp;L = Gross P&amp;L − Fees<br>% Change = ((Exit − Entry) ÷ Entry) × 100</div>
-        <div class="formula-desc">Basic profit/loss calculation for any trade. Use Long direction for buys, Short for sells/shorts.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Position Size — Mode 1 (Price-based)</div>
-        <div class="formula-formula">Risk Amount = Balance × Risk%<br>Risk Per Share = |Entry − Stop Loss|<br>Shares = Risk Amount ÷ Risk Per Share<br>Position Size = Shares × Entry Price</div>
-        <div class="formula-desc">Calculates exactly how many shares to buy so that if your stop loss is hit, you only lose your defined risk amount.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Position Size — Mode 2 (% SL)</div>
-        <div class="formula-formula">Risk Amount = Balance × Risk%<br>Position Size = Risk Amount ÷ SL%</div>
-        <div class="formula-desc">When you know your stop loss as a percentage from entry rather than an exact price.</div>
-      </div>
-
-      <div class="formula-card">
-        <div class="formula-name">Compound Growth</div>
-        <div class="formula-formula">Balance(month) = Balance(prev) × (1 + r) + Deposit<br>where r = Annual Rate ÷ 12</div>
-        <div class="formula-desc">Shows how your account grows month by month with a consistent return rate. The power of compounding means small consistent gains add up significantly over time.</div>
-      </div>
-
-      <!-- TRADING GLOSSARY -->
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--gold);margin:20px 0 12px;text-transform:uppercase;font-weight:700">📖 Trading Glossary</div>
-
-      <div class="formula-card">
-        <div class="formula-name">Long</div>
-        <div class="formula-desc">Buying a stock expecting the price to go UP. You profit when price rises above your entry.</div>
-      </div>
-      <div class="formula-card">
-        <div class="formula-name">Short</div>
-        <div class="formula-desc">Selling a stock you don't own, expecting the price to go DOWN. You profit when price falls below your entry.</div>
-      </div>
-      <div class="formula-card">
-        <div class="formula-name">Stop Loss (SL)</div>
-        <div class="formula-desc">A price level where you exit a losing trade to prevent further losses. Essential for risk management.</div>
-      </div>
-      <div class="formula-card">
-        <div class="formula-name">Take Profit (TP)</div>
-        <div class="formula-desc">A target price where you exit a winning trade to lock in profits.</div>
-      </div>
-      <div class="formula-card">
-        <div class="formula-name">Drawdown</div>
-        <div class="formula-desc">The peak-to-trough decline in your account balance. Maximum drawdown is the largest drop from a high point.</div>
-      </div>
-      <div class="formula-card">
-        <div class="formula-name">Partial Close</div>
-        <div class="formula-desc">Closing only a portion of your position (e.g. 50% of shares) to lock in some profit while keeping exposure.</div>
-      </div>
-
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('formulasModal')">Got it!</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg">Done!</span></div>
-
+<script>
+// Emergency failsafe: always hide loader after 3s
+setTimeout(function(){
+  var ls = document.getElementById('loadingScreen');
+  if (ls) { ls.style.opacity='0'; ls.style.display='none'; }
+}, 3000);
+</script>
 
 <!-- LOADING SCREEN -->
 <div id="loadingScreen">
@@ -1390,7 +821,7 @@ textarea{resize:vertical;min-height:70px;}
     <div class="modal-body">
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="field"><label>Account Name <span class="req">*</span></label><input id="f_acc_name" type="text" placeholder="e.g. Main, Crypto…"></div>
-        <div class="field"><label>Capital <span class="opt">(optional)</span></label><input id="f_acc_capital" type="number" step="0.01" placeholder="10000.00"></div>
+        <div class="field"><label>Starting Capital <span class="opt">(optional)</span></label><input id="f_acc_capital" type="number" step="0.01" placeholder="10000.00"></div>
         <div class="field"><label>Broker / Platform <span class="opt">(optional)</span></label><input id="acc_broker" type="text" placeholder="e.g. Binance, TD…"></div>
         <div id="accTransactionSection" style="display:none">
           <div style="margin-bottom:8px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase">Deposit / Withdraw</div>
@@ -1702,14 +1133,7 @@ textarea{resize:vertical;min-height:70px;}
 <div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg">Done!</span></div>
 
 <script>
-
-// ==========================================================================
-// STATE + INDEXEDDB STORAGE
-// ==========================================================================
-var state = {accounts:[],trades:[],activeAccountId:null};
-var currentView = 'dashboard';
-var filterAcco
-
+// ===================
 // ==========================================================================
 // STATE + INDEXEDDB STORAGE
 // ==========================================================================
@@ -1729,9 +1153,6 @@ var COLORS = ['#4d9fff','#00d68f','#a78bfa','#ffc247','#ff4d6d','#34d399'];
 var _db = null;
 
 function openDB(callback) {
-  // Skip IndexedDB on local files - use localStorage only
-  var isLocal = (window.location.protocol === 'file:' || window.location.protocol === 'content:');
-  if (isLocal) { callback(null); return; }
   if (_db) { callback(_db); return; }
   try {
     var req = indexedDB.open('TradeLogPro', 2);
@@ -1756,12 +1177,10 @@ function save() {
 }
 
 function loadFromDB(callback) {
-  var called = false;
-  function done() { if (!called) { called = true; callback(); } }
   openDB(function(db) {
     if (!db) {
       try { var ls = localStorage.getItem('tl_v3'); if (ls) state = JSON.parse(ls) || state; } catch(e) {}
-      done(); return;
+      callback(); return;
     }
     try {
       var req = db.transaction('state','readonly').objectStore('state').get('main');
@@ -1771,10 +1190,10 @@ function loadFromDB(callback) {
         } else {
           try { var ls2 = localStorage.getItem('tl_v3'); if (ls2) { var p = JSON.parse(ls2); if (p && p.accounts) { state = p; save(); } } } catch(e) {}
         }
-        done();
+        callback();
       };
-      req.onerror = function() { done(); };
-    } catch(e) { done(); }
+      req.onerror = function() { callback(); };
+    } catch(e) { callback(); }
   });
 }
 
@@ -2394,7 +1813,7 @@ function editAccount(id) {
   var titleEl = document.getElementById('accountModalTitle');
   if (titleEl) titleEl.textContent = 'Edit Account';
   var n = document.getElementById('f_acc_name'); if (n) n.value = acc.name || '';
-  var cap = document.getElementById('f_acc_capital'); if (cap) cap.value = acc.startingCapital ? parseFloat(acc.startingCapital).toFixed(2) : '';
+  var cap = document.getElementById('f_acc_capital'); if (cap) cap.value = acc.startingCapital || '';
   var broker = document.getElementById('acc_broker'); if (broker) broker.value = acc.broker || '';
 
   var txSection = document.getElementById('accTransactionSection');
@@ -2582,12 +2001,10 @@ function showToast(msg, type) {
 function populateAccountSelector(selectedId) {
   var sel = document.getElementById('f_account');
   if (!sel) return;
-  var opts = '<option value="" disabled' + (!selectedId ? ' selected' : '') + '>Select Account</option>';
-  opts += state.accounts.map(function(a){
-    var selected = (selectedId && a.id === selectedId) ? ' selected' : '';
+  sel.innerHTML = state.accounts.map(function(a){
+    var selected = (a.id === (selectedId || state.activeAccountId || (state.accounts[0] && state.accounts[0].id))) ? ' selected' : '';
     return '<option value="' + a.id + '"' + selected + '>' + a.name + '</option>';
   }).join('');
-  sel.innerHTML = opts;
 }
 
 function populateTickerSuggestions() {
@@ -2695,8 +2112,7 @@ function saveTradeModal() {
   var fees_mode = document.getElementById('f_fees_mode').value;
   if (status === 'closed' && (!exit_val || exit_val <= 0)) { showToast('Please enter an exit price for closed trade', 'error'); return; }
   var accSel = document.getElementById('f_account');
-  var accId = accSel ? accSel.value : '';
-  if (!accId) { showToast('Please select an account', 'error'); return; }
+  var accId = accSel ? accSel.value : (state.activeAccountId || (state.accounts[0] && state.accounts[0].id));
   if (editingTradeId) {
     var t = state.trades.find(function(x){ return x.id === editingTradeId; });
     if (t) {
@@ -3880,94 +3296,40 @@ function importCSV() {
       try {
         var lines = ev.target.result.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
         if (lines.length < 2) { showToast('CSV appears empty', 'error'); return; }
-
-        function parseCSVLine(line) {
-          var result = []; var cur = ''; var inQ = false;
-          for (var i = 0; i < line.length; i++) {
-            var ch = line[i];
-            if (ch === '"') { inQ = !inQ; }
-            else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
-            else { cur += ch; }
-          }
-          result.push(cur.trim());
-          return result;
-        }
-
-        var headers = parseCSVLine(lines[0]).map(function(h){ return h.toLowerCase().replace(/"/g,'').trim(); });
-
+        var headers = lines[0].split(',').map(function(h){ return h.trim().toLowerCase().replace(/['"]/g,''); });
         function getCol(row, names) {
-          for (var ni = 0; ni < names.length; ni++) {
-            var ix = headers.indexOf(names[ni]);
-            if (ix >= 0 && row[ix] !== undefined) return row[ix].replace(/"/g,'').trim();
+          var cols = row.split(',');
+          for (var i = 0; i < names.length; i++) {
+            var ix = headers.indexOf(names[i]);
+            if (ix >= 0 && cols[ix]) return cols[ix].trim().replace(/['"]/g,'');
           }
           return '';
         }
-
         function normDate(d) {
           if (!d) return '';
-          d = d.split(' ')[0];
           if (d.indexOf('/') >= 0) {
             var p = d.split('/');
             if (p.length === 3) return (p[2].length===2?'20'+p[2]:p[2]) + '-' + p[0].padStart(2,'0') + '-' + p[1].padStart(2,'0');
           }
           return d;
         }
-
-        var isT212 = headers.indexOf('action') >= 0 && headers.indexOf('ticker') >= 0 && (headers.indexOf('no. of shares') >= 0 || headers.indexOf('no. of shares') >= 0);
+        // Parse all rows
         var parsed = [];
-
-        if (isT212) {
-          var buyMap = {};
-          for (var i = 1; i < lines.length; i++) {
-            var row = parseCSVLine(lines[i]);
-            if (!row || row.length < 3) continue;
-            var action = getCol(row, ['action']).toLowerCase();
-            var ticker = (getCol(row, ['ticker']) || '').replace(/"/g,'').toUpperCase();
-            var sharesRaw = getCol(row, ['no. of shares']);
-            var priceRaw  = getCol(row, ['price / share','price/share']);
-            var shares = parseFloat(sharesRaw);
-            var price  = parseFloat(priceRaw);
-            var dateStr = normDate(getCol(row, ['time','date']));
-            if (!ticker || !shares || !price) continue;
-            var isBuy  = action.indexOf('buy') >= 0;
-            var isSell = action.indexOf('sell') >= 0;
-            if (isBuy) {
-              if (!buyMap[ticker]) buyMap[ticker] = [];
-              buyMap[ticker].push({ticker:ticker, shares:shares, price:price, date:dateStr});
-            } else if (isSell) {
-              if (buyMap[ticker] && buyMap[ticker].length) {
-                var b = buyMap[ticker].shift();
-                parsed.push({ticker:ticker, dir:'Long', entryDate:b.date, exitDate:dateStr, entry:b.price, exit:price, qty:Math.min(b.shares,shares), fees:0, status:'closed'});
-              } else {
-                parsed.push({ticker:ticker, dir:'Short', entryDate:dateStr, exitDate:dateStr, entry:price, exit:price, qty:shares, fees:0, status:'closed'});
-              }
-            }
-          }
-          var keys = Object.keys(buyMap);
-          for (var k = 0; k < keys.length; k++) {
-            var ticker2 = keys[k];
-            for (var b2 = 0; b2 < buyMap[ticker2].length; b2++) {
-              var bx = buyMap[ticker2][b2];
-              parsed.push({ticker:bx.ticker, dir:'Long', entryDate:bx.date, exitDate:null, entry:bx.price, exit:null, qty:bx.shares, fees:0, status:'open'});
-            }
-          }
-        } else {
-          for (var i = 1; i < lines.length; i++) {
-            var row = parseCSVLine(lines[i]);
-            if (!row || row.length < 2) continue;
-            var ticker = (getCol(row,['symbol','ticker','stock','asset'])||'').toUpperCase();
-            var dir = getCol(row,['direction','side','type','action'])||'long';
-            dir = dir.toLowerCase();
-            dir = (dir.indexOf('buy')>=0||dir.indexOf('long')>=0)?'Long':(dir.indexOf('sell')>=0||dir.indexOf('short')>=0)?'Short':'Long';
-            var entryDate = normDate(getCol(row,['entry date','entry_date','date','open date','trade date']));
-            var exitDate  = normDate(getCol(row,['exit date','exit_date','close date','closedate']));
-            var entry = parseFloat(getCol(row,['entry','entry price','buy price','open price','avg entry']));
-            var exit2 = parseFloat(getCol(row,['exit','exit price','sell price','close price']));
-            var qty   = parseFloat(getCol(row,['qty','quantity','shares','size','units']));
-            var fees  = parseFloat(getCol(row,['fees','commission','fee']))||0;
-            if (!ticker || !entry || !qty) continue;
-            parsed.push({ticker:ticker, dir:dir, entryDate:entryDate||today(), exitDate:exitDate||null, entry:entry, exit:exit2||null, qty:qty, fees:fees, status:(exit2&&exitDate)?'closed':'open'});
-          }
+        for (var i = 1; i < lines.length; i++) {
+          var row = lines[i]; if (!row) continue;
+          var ticker = (getCol(row,['symbol','ticker','stock','asset'])||'').toUpperCase();
+          var dir = getCol(row,['direction','side','type','action'])||'long';
+          dir = dir.toLowerCase();
+          dir = (dir.indexOf('buy')>=0||dir.indexOf('long')>=0) ? 'Long' : (dir.indexOf('sell')>=0||dir.indexOf('short')>=0) ? 'Short' : 'Long';
+          var entryDate = normDate(getCol(row,['entry date','entry_date','date','open date','trade date']));
+          var exitDate  = normDate(getCol(row,['exit date','exit_date','close date','closedate']));
+          var entry = parseFloat(getCol(row,['entry','entry price','buy price','open price','avg entry']));
+          var exit2 = parseFloat(getCol(row,['exit','exit price','sell price','close price']));
+          var qty   = parseFloat(getCol(row,['qty','quantity','shares','size','units']));
+          var fees  = parseFloat(getCol(row,['fees','commission','fee']))||0;
+          if (!ticker || !entry || !qty) continue;
+          parsed.push({ticker:ticker, dir:dir, entryDate:entryDate||today(), exitDate:exitDate||null,
+            entry:entry, exit:exit2||null, qty:qty, fees:fees, status:(exit2&&exitDate)?'closed':'open'});
         }
         if (!parsed.length) { showToast('No valid trades found in CSV', 'error'); return; }
         showCSVPreview(parsed);
@@ -4222,22 +3584,18 @@ function openFormulasModal() { openModal('formulasModal'); }
 
 function hideLoader() {
   var ls = document.getElementById('loadingScreen');
-  if (ls) {
-    ls.style.transition = 'none';
-    ls.style.opacity = '0';
-    ls.style.display = 'none';
-  }
+  if (ls) { ls.style.opacity = '0'; setTimeout(function(){ ls.style.display = 'none'; }, 400); }
 }
 
 function initApp() {
-  // Hide loader immediately
+  // Hide loader immediately - no waiting
   var ls = document.getElementById('loadingScreen');
   if (ls) { ls.style.transition='none'; ls.style.opacity='0'; ls.style.display='none'; }
 
   // Apply theme
   try { applyTheme(localStorage.getItem('tl_theme') || 'dark'); } catch(e) {}
 
-  // Load state from localStorage
+  // Load state from localStorage synchronously
   try {
     var keys = ['tl_v3', 'tl_state_v2', 'tl_state'];
     for (var k = 0; k < keys.length; k++) {
@@ -4266,26 +3624,25 @@ function initApp() {
   try { renderMain(); } catch(e) {}
   try { renderFilterBar(); } catch(e) {}
 
-  // Background IndexedDB sync (non-blocking)
+  // Background: try IndexedDB for GitHub Pages
   try {
-    loadFromDB(function() {
-      try { renderSidebar(); } catch(e) {}
-      try { renderMain(); } catch(e) {}
-    });
+    if (window.location.protocol === 'https:') {
+      loadFromDB(function() {
+        try { renderSidebar(); renderMain(); } catch(e) {}
+      });
+    }
   } catch(e) {}
 
-  // Register service worker
+  // Service worker
   if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
     try { navigator.serviceWorker.register('/tradelog-pro/sw.js').catch(function(){}); } catch(e) {}
   }
 }
 
-
-
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  initApp();
+  setTimeout(initApp, 0);
 }
 </script>
 </body>
