@@ -54,7 +54,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 /* ═══════════════════════════════════════════════════
    LOADING SCREEN
 ═══════════════════════════════════════════════════ */
-#loadingScreen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s;}
+#loadingScreen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
 .loader-ring{width:48px;height:48px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
@@ -544,15 +544,6 @@ textarea{resize:vertical;min-height:70px;}
 </style>
 </head>
 <body>
-<script>
-// Run immediately when body starts - hide loader fast
-window.addEventListener('load', function() {
-  var ls = document.getElementById('loadingScreen');
-  if (ls) { ls.style.opacity = '0'; ls.style.display = 'none'; }
-  if (typeof initApp === 'function') initApp();
-});
-</script>
-
 </head>
 <body>
 
@@ -1711,6 +1702,13 @@ window.addEventListener('load', function() {
 <div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg">Done!</span></div>
 
 <script>
+
+// ==========================================================================
+// STATE + INDEXEDDB STORAGE
+// ==========================================================================
+var state = {accounts:[],trades:[],activeAccountId:null};
+var currentView = 'dashboard';
+var filterAcco
 
 // ==========================================================================
 // STATE + INDEXEDDB STORAGE
@@ -4224,76 +4222,71 @@ function openFormulasModal() { openModal('formulasModal'); }
 
 function hideLoader() {
   var ls = document.getElementById('loadingScreen');
-  if (ls) { ls.style.opacity = '0'; setTimeout(function(){ ls.style.display = 'none'; }, 400); }
+  if (ls) {
+    ls.style.transition = 'none';
+    ls.style.opacity = '0';
+    ls.style.display = 'none';
+  }
 }
 
 function initApp() {
-  // Step 1: Apply theme immediately
+  // Hide loader immediately
+  var ls = document.getElementById('loadingScreen');
+  if (ls) { ls.style.transition='none'; ls.style.opacity='0'; ls.style.display='none'; }
+
+  // Apply theme
   try { applyTheme(localStorage.getItem('tl_theme') || 'dark'); } catch(e) {}
 
-  // Step 2: Load state from localStorage synchronously (no IndexedDB)
+  // Load state from localStorage
   try {
-    var saved = localStorage.getItem('tl_v3') ||
-                localStorage.getItem('tl_state_v2') ||
-                localStorage.getItem('tl_state');
-    if (saved) {
-      var parsed = JSON.parse(saved);
-      if (parsed && parsed.accounts) {
-        state = parsed;
-        state.trades = state.trades || [];
-        state.accounts = state.accounts || [];
-        state.trades.forEach(function(t){
-          if (!t.fees_mode) t.fees_mode = '%';
-          if (!t.original_qty) t.original_qty = t.qty;
-          if (!t.add_buys) t.add_buys = [];
-          if (!t.partial_closes) t.partial_closes = [];
-        });
+    var keys = ['tl_v3', 'tl_state_v2', 'tl_state'];
+    for (var k = 0; k < keys.length; k++) {
+      var saved = localStorage.getItem(keys[k]);
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        if (parsed && parsed.accounts && parsed.accounts.length) {
+          state = parsed;
+          state.trades = state.trades || [];
+          state.accounts = state.accounts || [];
+          state.activeAccountId = state.activeAccountId || (state.accounts[0] && state.accounts[0].id) || null;
+          state.trades.forEach(function(t){
+            if (!t.fees_mode) t.fees_mode = '%';
+            if (!t.original_qty) t.original_qty = t.qty;
+            if (!t.add_buys) t.add_buys = [];
+            if (!t.partial_closes) t.partial_closes = [];
+          });
+          break;
+        }
       }
     }
   } catch(e) {}
 
-  // Step 3: Render everything
+  // Render app
   try { renderSidebar(); } catch(e) {}
   try { renderMain(); } catch(e) {}
   try { renderFilterBar(); } catch(e) {}
 
-  // Step 4: Hide loader
-  hideLoader();
-
-  // Step 5: Try IndexedDB in background (for GitHub Pages)
+  // Background IndexedDB sync (non-blocking)
   try {
-    if (window.location.protocol === 'https:') {
-      loadFromDB(function() {
-        try { renderSidebar(); } catch(e) {}
-        try { renderMain(); } catch(e) {}
-      });
-    }
+    loadFromDB(function() {
+      try { renderSidebar(); } catch(e) {}
+      try { renderMain(); } catch(e) {}
+    });
   } catch(e) {}
 
-  // Step 6: Register service worker
+  // Register service worker
   if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
-    navigator.serviceWorker.register('/tradelog-pro/sw.js').catch(function(){});
+    try { navigator.serviceWorker.register('/tradelog-pro/sw.js').catch(function(){}); } catch(e) {}
   }
 }
 
-// Emergency failsafe - fire at 100ms
-setTimeout(function(){
-  var ls = document.getElementById('loadingScreen');
-  if (ls) { ls.style.opacity='0'; ls.style.display='none'; }
-  try { renderSidebar(); renderMain(); renderFilterBar(); } catch(e) {}
-}, 100);
 
-// initApp called by window load listener above
-// Fallback if load event already fired
-if (document.readyState === 'complete') {
-  setTimeout(initApp, 0);
-} else if (document.readyState !== 'loading') {
-  setTimeout(initApp, 0);
-} else {
+
+if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }
-
-
 </script>
 </body>
 </html>
