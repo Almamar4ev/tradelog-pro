@@ -1548,6 +1548,99 @@ function setAccountFilter(val) {
   }
 }
 
+
+// ==========================================================================
+// STOCK AVERAGE CALCULATOR
+// ==========================================================================
+var _avgRows = [{price:'', qty:''}];
+
+function renderAvgCalc() {
+  var rowsHtml = _avgRows.map(function(r, i) {
+    return '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px">' +
+      '<div>' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:4px">PRICE</div>' +
+        '<input type="number" step="0.0001" placeholder="0.00" value="' + (r.price||'') + '"' +
+        ' style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px;font-size:14px;font-family:var(--mono)"' +
+        ' onchange="updateAvgRow(' + i + ',&apos;price&apos;,this.value);calcStockAvg()" oninput="updateAvgRow(' + i + ',&apos;price&apos;,this.value);calcStockAvg()">' +
+      '</div>' +
+      '<div>' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:4px">SHARES</div>' +
+        '<input type="number" step="0.0001" placeholder="0" value="' + (r.qty||'') + '"' +
+        ' style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px;font-size:14px;font-family:var(--mono)"' +
+        ' onchange="updateAvgRow(' + i + ',&apos;qty&apos;,this.value);calcStockAvg()" oninput="updateAvgRow(' + i + ',&apos;qty&apos;,this.value);calcStockAvg()">' +
+      '</div>' +
+      '<div style="display:flex;align-items:flex-end;padding-bottom:2px">' +
+        (_avgRows.length > 1 ? '<button onclick="removeAvgRow(' + i + ')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:6px;padding:8px 10px;cursor:pointer">&#x2715;</button>' : '<div style="width:36px"></div>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+  return '<div style="padding:4px 0">' +
+    '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:12px">ENTER YOUR PURCHASES</div>' +
+    rowsHtml +
+    '<button onclick="addAvgRow()" style="width:100%;padding:10px;background:var(--surface2);border:1px dashed var(--border2);border-radius:8px;color:var(--blue);font-size:14px;cursor:pointer;margin-bottom:14px">+ Add Purchase</button>' +
+    '<div id="avg_result" style="background:var(--surface2);border-radius:10px;padding:14px">' +
+      '<div style="color:var(--text3);font-size:13px;text-align:center">Enter at least one price and shares</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function updateAvgRow(i, field, val) {
+  if (_avgRows[i]) _avgRows[i][field] = val;
+}
+
+function addAvgRow() {
+  _avgRows.push({price:'', qty:''});
+  var d = document.getElementById('calc_avg');
+  if (d) d.innerHTML = renderAvgCalc();
+  calcStockAvg();
+}
+
+function removeAvgRow(i) {
+  _avgRows.splice(i, 1);
+  if (_avgRows.length === 0) _avgRows = [{price:'', qty:''}];
+  var d = document.getElementById('calc_avg');
+  if (d) d.innerHTML = renderAvgCalc();
+  calcStockAvg();
+}
+
+function calcStockAvg() {
+  var res = document.getElementById('avg_result');
+  if (!res) return;
+  var valid = _avgRows.filter(function(r){ return parseFloat(r.price) > 0 && parseFloat(r.qty) > 0; });
+  if (!valid.length) {
+    res.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center">Enter at least one price and shares</div>';
+    return;
+  }
+  var totalCost   = valid.reduce(function(s,r){ return s + parseFloat(r.price)*parseFloat(r.qty); }, 0);
+  var totalShares = valid.reduce(function(s,r){ return s + parseFloat(r.qty); }, 0);
+  var avgPrice    = totalCost / totalShares;
+  res.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
+      '<div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Average Price</div>' +
+        '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--blue)">' + fmtPrice(avgPrice) + '</div>' +
+      '</div>' +
+      '<div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Total Shares</div>' +
+        '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text)">' + fmtQty(totalShares) + '</div>' +
+      '</div>' +
+      '<div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Total Invested</div>' +
+        '<div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text)">' + fmtMoney(totalCost) + '</div>' +
+      '</div>' +
+      '<div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:4px">No. of Buys</div>' +
+        '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text)">' + valid.length + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="background:var(--surface3);border-radius:8px;padding:12px;font-size:13px;color:var(--text2);line-height:1.9">' +
+      '&#128161; Sell above <strong style="color:var(--green)">' + fmtPrice(avgPrice) + '</strong> to profit<br>' +
+      '&#128200; Buy below <strong style="color:var(--green)">' + fmtPrice(avgPrice) + '</strong> to lower your average<br>' +
+      '&#128201; Buy above <strong style="color:var(--red)">' + fmtPrice(avgPrice) + '</strong> to raise your average<br>' +
+      '&#9888;&#65039; Set stop-loss below your average to protect capital' +
+    '</div>';
+}
+
 // ==========================================================================
 // SIDEBAR
 // ==========================================================================
@@ -2121,18 +2214,15 @@ function fromDetailOpen(action, tradeId) {
 }
 
 function cancelSubModal(modalId) {
-  var targetId = partialCloseTargetId || addBuyTargetId;
   closeModal(modalId);
-  if (targetId) { openTradeDetail(targetId); }
+  // Close cleanly - stay on trade log page
 }
 
 function cancelTradeModal() {
-  var wasFromDetail = openedFromDetail;
-  var tid = editingTradeId;
   closeModal('tradeModal');
   editingTradeId = null;
   openedFromDetail = false;
-  if (wasFromDetail && tid) { openTradeDetail(tid); }
+  // Close cleanly - stay on current page
 }
 
 function openModal(id) { var el = document.getElementById(id); if (el) el.classList.add('open'); }
@@ -2358,6 +2448,66 @@ function openTradeDetail(id) {
   html += '<table style="width:100%;border-collapse:collapse">';
   rows.forEach(function(r){ html += '<tr><td style="' + tdS + '">' + r[0] + '</td><td style="' + tdV + '">' + r[1] + '</td></tr>'; });
   html += '</table>';
+  // DCA Summary Card - always show
+  if (true) {
+    var allBuys = [{qty: t.qty, price: t.entry, date: t.entry_date}];
+    t.add_buys.forEach(function(b){ allBuys.push({qty:b.qty, price:b.price, date:b.date}); });
+    var totalShares = allBuys.reduce(function(s,b){ return s+b.qty; }, 0);
+    var totalCost   = allBuys.reduce(function(s,b){ return s+b.qty*b.price; }, 0);
+    var dcaAvg      = totalShares > 0 ? totalCost / totalShares : 0;
+    // Break-even depends on fee mode:
+    // % mode: fees are only charged on profit, so break-even = avg entry (any price above = profit after fees)
+    // $ mode: fees are flat cost, so break-even = avg entry + (fee / remaining shares)
+    var feeVal = parseFloat(t.fees) || 0;
+    var breakEven;
+    if (t.fees_mode === '$' && feeVal > 0 && remainingQty > 0) {
+      var dir2 = t.direction === 'Long' ? 1 : -1;
+      breakEven = dcaAvg + dir2 * (feeVal / remainingQty);
+    } else {
+      // % fee mode: break-even is just above avg entry — fees only bite into profit
+      breakEven = dcaAvg;
+    }
+    var livePrice   = t.current_price || null;
+    var distPct     = livePrice ? ((livePrice - dcaAvg) / dcaAvg * 100) : null;
+
+    html += '<div style="margin-top:14px;background:var(--surface2);border-radius:10px;padding:14px;border-left:3px solid var(--blue)">' +
+      '<div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--blue);margin-bottom:10px">&#128200; DCA SUMMARY</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
+        '<div style="background:var(--surface3);border-radius:6px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:2px">Avg Entry Price</div>' +
+          '<div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)">' + fmtPrice(dcaAvg) + '</div>' +
+        '</div>' +
+        '<div style="background:var(--surface3);border-radius:6px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:2px">' + (t.fees_mode === '$' && (parseFloat(t.fees)||0) > 0 ? 'Break-even Price' : 'Break-even Price') + '</div>' +
+          '<div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--gold)">' + fmtPrice(breakEven) + '</div>' +
+          '<div style="font-size:9px;color:var(--text3);margin-top:2px">' + (t.fees_mode === '$' && (parseFloat(t.fees)||0) > 0 ? 'incl. flat fee' : '= avg entry (% fees on profit only)') + '</div>' +
+        '</div>' +
+        '<div style="background:var(--surface3);border-radius:6px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:2px">Total Purchases</div>' +
+          '<div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)">' + allBuys.length + ' buys</div>' +
+        '</div>' +
+        '<div style="background:var(--surface3);border-radius:6px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:var(--text3);margin-bottom:2px">Total Shares</div>' +
+          '<div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)">' + fmtQty(totalShares) + '</div>' +
+        '</div>' +
+      '</div>' +
+      // Smart notes
+      '<div style="font-size:12px;color:var(--text2);line-height:1.7">' +
+        (t.fees_mode === '$' && (parseFloat(t.fees)||0) > 0
+          ? '&#128161; Sell above <strong>' + fmtPrice(breakEven) + '</strong> to cover flat fees<br>'
+          : '&#128161; Sell above <strong>' + fmtPrice(breakEven) + '</strong> (your avg entry) to profit — fees are only charged on your profit, not below this price<br>') +
+        (livePrice && distPct !== null ?
+          (distPct >= 0 ?
+            '&#128200; Current price is <strong style="color:var(--green)">+' + distPct.toFixed(2) + '%</strong> above your average' :
+            '&#128201; Current price is <strong style="color:var(--red)">' + distPct.toFixed(2) + '%</strong> below your average — still in loss territory') + '<br>'
+          : '') +
+        (t.direction === 'Long' ?
+          '&#128270; Each new buy <strong>below ' + fmtPrice(dcaAvg) + '</strong> will lower your average' :
+          '&#128270; Each new sell <strong>above ' + fmtPrice(dcaAvg) + '</strong> will raise your average') +
+      '</div>' +
+    '</div>';
+  }
+
   // Trade history
   var hasHistory = (t.add_buys && t.add_buys.length) || (t.partial_closes && t.partial_closes.length);
   if (hasHistory) {
@@ -2898,15 +3048,17 @@ function renderCalculators() {
       '<button id="ctab_pnl" class="ps-mode-btn active" onclick="switchCalc(\'pnl\')">💰 P&L Calculator</button>' +
       '<button id="ctab_pos" class="ps-mode-btn" onclick="switchCalc(\'pos\')">📐 Position Size</button>' +
       '<button id="ctab_compound" class="ps-mode-btn" onclick="switchCalc(\'compound\')">📈 Compound Growth</button>' +
+      '<button id="ctab_avg" class="ps-mode-btn" onclick="switchCalc(\'avg\')">📊 Stock Average</button>' +
     '</div>' +
     '<div id="calc_pnl">' + renderPnlCalc() + '</div>' +
     '<div id="calc_pos" style="display:none">' + renderPosCalc() + '</div>' +
     '<div id="calc_compound" style="display:none">' + renderCompoundCalc() + '</div>' +
+    '<div id="calc_avg" style="display:none">' + renderAvgCalc() + '</div>' +
   '</div>';
 }
 
 function switchCalc(tab) {
-  ['pnl','pos','compound'].forEach(function(t){
+  ['pnl','pos','compound','avg'].forEach(function(t){
     var el = document.getElementById('calc_' + t); if (el) el.style.display = t === tab ? '' : 'none';
     var btn = document.getElementById('ctab_' + t); if (btn) btn.className = 'ps-mode-btn' + (t === tab ? ' active' : '');
   });
