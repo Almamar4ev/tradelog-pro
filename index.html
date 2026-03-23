@@ -1578,9 +1578,13 @@ function renderAvgCalc() {
     '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:12px">ENTER YOUR PURCHASES</div>' +
     rowsHtml +
     '<button onclick="addAvgRow()" style="width:100%;padding:10px;background:var(--surface2);border:1px dashed var(--border2);border-radius:8px;color:var(--blue);font-size:14px;cursor:pointer;margin-bottom:14px">+ Add Purchase</button>' +
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:10px">' +
+      '<button class="btn btn-secondary btn-sm" onclick="saveAvgCalc()">&#128190; Save</button>' +
+    '</div>' +
     '<div id="avg_result" style="background:var(--surface2);border-radius:10px;padding:14px">' +
       '<div style="color:var(--text3);font-size:13px;text-align:center">Enter at least one price and shares</div>' +
     '</div>' +
+    '<div id="avgSavedList" style="margin-top:12px"></div>' +
   '</div>';
 }
 
@@ -1641,6 +1645,65 @@ function calcStockAvg() {
     '</div>';
 }
 
+function saveAvgCalc() {
+  var valid = _avgRows.filter(function(r){ return parseFloat(r.price) > 0 && parseFloat(r.qty) > 0; });
+  if (!valid.length) { showToast('Enter at least one row first', 'error'); return; }
+  var name = window.prompt('Name this calculation (e.g. "AAPL DCA"):');
+  if (!name || !name.trim()) return;
+  var entry = {
+    id: Date.now().toString(),
+    name: name.trim(),
+    date: new Date().toISOString().split('T')[0],
+    rows: JSON.parse(JSON.stringify(_avgRows))
+  };
+  var arr = getSavedCalcs('tl_avg_calcs');
+  arr.unshift(entry);
+  if (arr.length > 20) arr = arr.slice(0, 20);
+  setSavedCalcs('tl_avg_calcs', arr);
+  renderAvgSaved();
+  showToast('Saved: ' + name.trim(), 'success');
+}
+
+function renderAvgSaved() {
+  var el = document.getElementById('avgSavedList');
+  if (!el) return;
+  var arr = getSavedCalcs('tl_avg_calcs');
+  if (!arr.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:8px">Saved Calculations</div>' +
+    arr.map(function(e) {
+      var rowCount = (e.rows || []).filter(function(r){ return parseFloat(r.price) > 0 && parseFloat(r.qty) > 0; }).length;
+      return '<div class="saved-calc-row">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;font-weight:600">' + e.name + '</div>' +
+          '<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">' + e.date + ' &middot; ' + rowCount + ' purchase' + (rowCount !== 1 ? 's' : '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0">' +
+          '<button class="icon-btn" onclick="loadAvgCalc(\'' + e.id + '\')">&#128194;</button>' +
+          '<button class="icon-btn del" onclick="deleteAvgCalc(\'' + e.id + '\')">&#128465;</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+}
+
+function loadAvgCalc(id) {
+  var arr = getSavedCalcs('tl_avg_calcs');
+  var e = arr.find(function(x){ return x.id === id; });
+  if (!e || !e.rows) return;
+  _avgRows = JSON.parse(JSON.stringify(e.rows));
+  if (!_avgRows.length) _avgRows = [{price:'', qty:''}];
+  var d = document.getElementById('calc_avg');
+  if (d) d.innerHTML = renderAvgCalc();
+  calcStockAvg();
+  renderAvgSaved();
+  showToast('Loaded: ' + e.name, 'success');
+}
+
+function deleteAvgCalc(id) {
+  if (!window.confirm('Delete this saved calculation?')) return;
+  setSavedCalcs('tl_avg_calcs', getSavedCalcs('tl_avg_calcs').filter(function(x){ return x.id !== id; }));
+  renderAvgSaved();
+}
+
 // ==========================================================================
 // SIDEBAR
 // ==========================================================================
@@ -1674,7 +1737,7 @@ function renderMain() {
   else if (currentView === 'analytics')   { mc.innerHTML = renderAnalytics(); setTimeout(buildAnalyticsCharts, 50); }
   else if (currentView === 'accounts')    mc.innerHTML = renderAccountsView();
   if (currentView === 'calculators') {
-    setTimeout(function(){ renderPosSaved(); renderCompoundSaved(); }, 60);
+    setTimeout(function(){ renderPosSaved(); renderCompoundSaved(); renderAvgSaved(); }, 60);
   }
   // Show FAB only on dashboard and trades
   var fab = document.getElementById('fabBtn');
@@ -2202,7 +2265,8 @@ function moveAccount(id, dir) {
 // MODAL HELPERS
 // ==========================================================================
 function fromDetailOpen(action, tradeId) {
-  // Close detail modal first, then immediately open sub-modal
+  // Store the tradeId so sub-modal cancel can reopen detail
+  window._detailReturnId = tradeId;
   closeModal('tradeDetailModal');
   if (action === 'partial') {
     openPartialClose(tradeId);
@@ -2215,15 +2279,34 @@ function fromDetailOpen(action, tradeId) {
 
 function cancelSubModal(modalId) {
   closeModal(modalId);
-  // Close cleanly - stay on trade log page
+  if (window._detailReturnId) {
+    var rid = window._detailReturnId;
+    window._detailReturnId = null;
+    openTradeDetail(rid);
+  }
 }
 
+
+
+
+
 function cancelTradeModal() {
-  closeModal('tradeModal');
+  closeModal("tradeModal");
+  var wasFromDetail = openedFromDetail;
+  var returnId = window._detailReturnId || null;
   editingTradeId = null;
   openedFromDetail = false;
-  // Close cleanly - stay on current page
+  window._detailReturnId = null;
+  if (wasFromDetail && returnId) {
+    openTradeDetail(returnId);
+  }
 }
+
+
+
+
+
+
 
 function openModal(id) { var el = document.getElementById(id); if (el) el.classList.add('open'); }
 function closeModal(id) { var el = document.getElementById(id); if (el) el.classList.remove('open'); }
@@ -2247,9 +2330,18 @@ function showToast(msg, type) {
 function populateAccountSelector(selectedId) {
   var sel = document.getElementById('f_account');
   if (!sel) return;
-  sel.innerHTML = state.accounts.map(function(a){
-    var selected = (a.id === (selectedId || state.activeAccountId || (state.accounts[0] && state.accounts[0].id))) ? ' selected' : '';
-    return '<option value="' + a.id + '"' + selected + '>' + a.name + '</option>';
+  // For new trades: pre-select currently filtered account if viewing a specific one.
+  // If viewing "All accounts" or no filter, force user to pick manually (no default).
+  var defaultId = selectedId || null;
+  if (!defaultId) {
+    if (filterAccountId && filterAccountId !== 'all') {
+      defaultId = filterAccountId;
+    }
+  }
+  var blankOpt = defaultId ? '' : '<option value="" disabled selected>Select account...</option>';
+  sel.innerHTML = blankOpt + state.accounts.map(function(a){
+    var isSelected = (defaultId && a.id === defaultId) ? ' selected' : '';
+    return '<option value="' + a.id + '"' + isSelected + '>' + a.name + '</option>';
   }).join('');
 }
 
@@ -2358,7 +2450,8 @@ function saveTradeModal() {
   var fees_mode = document.getElementById('f_fees_mode').value;
   if (status === 'closed' && (!exit_val || exit_val <= 0)) { showToast('Please enter an exit price for closed trade', 'error'); return; }
   var accSel = document.getElementById('f_account');
-  var accId = accSel ? accSel.value : (state.activeAccountId || (state.accounts[0] && state.accounts[0].id));
+  var accId = accSel ? accSel.value : "";
+  if (!accId) { showToast("Please select an account", "error"); return; }
   if (editingTradeId) {
     var t = state.trades.find(function(x){ return x.id === editingTradeId; });
     if (t) {
@@ -2671,7 +2764,7 @@ function savePartialClose() {
   var newRem = calcTotalQty(t);
   if (newRem <= 0.0001) { t.status = 'closed'; t.exit = price; t.exit_date = date; t.qty = 0; }
   else { t.status = 'open'; t.qty = newRem; }
-  save(); closeModal('partialCloseModal'); closeModal('tradeDetailModal');
+  save(); closeModal('partialCloseModal'); closeModal('tradeDetailModal'); window._detailReturnId = null;
   renderSidebar(); renderMain();
   var pcId = partialCloseTargetId;
   if (pcId) { openTradeDetail(pcId); }
@@ -2710,7 +2803,7 @@ function saveAddBuy() {
   if (!qty || !price || qty <= 0) { showToast('Enter valid qty and price', 'error'); return; }
   if (!t.add_buys) t.add_buys = [];
   t.add_buys.push({id: Date.now().toString(), qty: qty, price: price, date: date, fees: fees||'0'});
-  save(); closeModal('addBuyModal'); closeModal('tradeDetailModal');
+  save(); closeModal('addBuyModal'); closeModal('tradeDetailModal'); window._detailReturnId = null;
   renderSidebar(); renderMain();
   var abId = addBuyTargetId;
   if (abId) { openTradeDetail(abId); }
@@ -2870,30 +2963,37 @@ function exportPDF() {
     'Total Trades: ' + trades.length,
     'Closed: ' + closed.length,
     'Win Rate: ' + wr + '%',
-    'Net P&L: ' + (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2),
+    'Net P&L: ' + (totalPnl >= 0 ? '+' : '') + currSym() + totalPnl.toFixed(2),
     'P&L %: ' + (totalPnl >= 0 ? '+' : '') + pct + '%',
-    'Invested: $' + totalInv.toFixed(2)
+    'Invested: ' + currSym() + totalInv.toFixed(2)
   ];
   summaryItems.forEach(function(s, i) {
     doc.text(s, margin + (i % 3) * 90, 28 + Math.floor(i / 3) * 6);
   });
 
   // ── Table ──
-  var cols = ['Symbol','Dir','Status','Entry Date','Exit Date','Entry $','Exit $','Qty','Fees','Net P&L','P&L%'];
+  var cs = currSym();
+  var cols = ['Symbol','Dir','Status','Entry Date','Exit Date','Entry' + (cs ? ' $' : ''), 'Exit' + (cs ? ' $' : ''),'Qty','Fees','Net P&L','P&L%'];
   var colW  = [22, 14, 16, 24, 24, 20, 20, 14, 16, 22, 16];
   var startY = 44;
   var rowH = 7;
 
-  // Header
-  doc.setFillColor(77, 159, 255);
-  doc.setTextColor(255, 255, 255);
+  // Header — draw all rects first, then all text on top to prevent overdraw
   doc.setFontSize(7); doc.setFont(undefined, 'bold');
   var x = margin;
-  cols.forEach(function(col, i) {
-    doc.rect(x, startY, colW[i], rowH, 'F');
-    doc.text(col, x + 1.5, startY + 4.5);
-    x += colW[i];
-  });
+  // Pass 1: fill all header cell backgrounds
+  doc.setFillColor(77, 159, 255);
+  for (var hi = 0; hi < cols.length; hi++) {
+    doc.rect(x, startY, colW[hi], rowH, 'F');
+    x += colW[hi];
+  }
+  // Pass 2: draw header text on top of all fills
+  doc.setTextColor(255, 255, 255);
+  x = margin;
+  for (var hi2 = 0; hi2 < cols.length; hi2++) {
+    doc.text(cols[hi2], x + 1.5, startY + 4.5);
+    x += colW[hi2];
+  }
 
   // Rows
   doc.setFont(undefined, 'normal');
@@ -2908,11 +3008,11 @@ function exportPDF() {
       t.status,
       t.entry_date || '',
       t.exit_date || '—',
-      '$' + parseFloat(t.entry || 0).toFixed(2),
-      t.exit ? '$' + parseFloat(t.exit).toFixed(2) : '—',
+      currSym() + parseFloat(t.entry || 0).toFixed(2),
+      t.exit ? currSym() + parseFloat(t.exit).toFixed(2) : '—',
       String(calcTotalQty(t)),
-      t.fees_mode === '%' ? (t.fees || 0) + '%' : '$' + (t.fees || 0),
-      (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2),
+      t.fees_mode === '%' ? (t.fees || 0) + '%' : currSym() + (t.fees || 0),
+      (pnl >= 0 ? '+' : '-') + currSym() + Math.abs(pnl).toFixed(2),
       pctRow
     ];
 
@@ -2942,10 +3042,27 @@ function exportPDF() {
     doc.setTextColor(60, 60, 60);
     y += rowH;
 
-    // New page if needed
+    // New page if needed — repeat header on new page
     if (y > 190) {
       doc.addPage();
       y = 14;
+      // Redraw column headers on new page
+      doc.setFontSize(7); doc.setFont(undefined, 'bold');
+      var nx = margin;
+      doc.setFillColor(77, 159, 255);
+      for (var nhi = 0; nhi < cols.length; nhi++) {
+        doc.rect(nx, y, colW[nhi], rowH, 'F');
+        nx += colW[nhi];
+      }
+      doc.setTextColor(255, 255, 255);
+      nx = margin;
+      for (var nhi2 = 0; nhi2 < cols.length; nhi2++) {
+        doc.text(cols[nhi2], nx + 1.5, y + 4.5);
+        nx += colW[nhi2];
+      }
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(60, 60, 60);
+      y += rowH;
     }
   });
 
@@ -3029,6 +3146,7 @@ function restoreData() {
         if (backup.savedCalcs) {
           try { if (backup.savedCalcs.pos) localStorage.setItem('tl_pos_calcs', JSON.stringify(backup.savedCalcs.pos)); } catch(e) {}
           try { if (backup.savedCalcs.comp) localStorage.setItem('tl_comp_calcs', JSON.stringify(backup.savedCalcs.comp)); } catch(e) {}
+          try { if (backup.savedCalcs.avg) localStorage.setItem('tl_avg_calcs', JSON.stringify(backup.savedCalcs.avg)); } catch(e) {}
         }
         save(); renderSidebar(); renderMain();
         showToast('Backup restored successfully!', 'success');
@@ -3064,6 +3182,7 @@ function switchCalc(tab) {
   });
   if (tab === 'pos') { setTimeout(function(){ renderPosSaved(); }, 50); }
   if (tab === 'compound') { setTimeout(function(){ renderCompoundSaved(); }, 50); }
+  if (tab === 'avg') { setTimeout(function(){ renderAvgSaved(); }, 50); }
 }
 
 function calcResultRow(label, value, style) {
