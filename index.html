@@ -1777,7 +1777,7 @@ function renderDashboard() {
     statCard('Net P&L', fmtPnl(netPnl), (netPnl >= 0 ? 'Profitable' : 'In drawdown') + (capital > 0 ? '  <span style="color:' + pnlColor(netPnl) + ';font-family:var(--mono)">·  ' + (netPnl/capital*100 >= 0 ? '+' : '') + (netPnl/capital*100).toFixed(2) + '% of capital</span>' : ''), pnlColor(netPnl)) +
     statCard('Win Rate', wr + '%', closed.length + ' closed trades', 'var(--blue)') +
     statCard('Avg R:R', avgRr, 'Risk : Reward', 'var(--gold)') +
-    statCard('Total Balance', fmtMoney(balance), 'Capital ' + (capital ? fmtMoney(capital) : 'not set') + '<br>+P&L', 'var(--purple)') +
+    statCard('Total Balance', currSym() + Math.abs(balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), 'Capital ' + (capital ? fmtMoney(capital) : 'not set') + '<br>+P&L', 'var(--purple)') +
   '</div>' +
   '<div class="charts-row">' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">📈 Equity Curve</div></div><div class="chart-wrap"><canvas id="equityChart"></canvas></div></div>' +
