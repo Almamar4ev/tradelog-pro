@@ -1337,6 +1337,25 @@ function calcPnl(t) {
 }
 
 // ==========================================================================
+// TRADE DURATION
+// ==========================================================================
+function calcTradeDuration(t) {
+  if (!t.entry_date) return null;
+  var start = new Date(t.entry_date);
+  var end = t.status === 'closed' && t.exit_date ? new Date(t.exit_date) : new Date();
+  var diff = Math.floor((end - start) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff;
+}
+function fmtDuration(days) {
+  if (days === null || days === undefined) return '—';
+  if (days === 0) return 'Same day';
+  if (days === 1) return '1 day';
+  if (days < 7) return days + ' days';
+  if (days < 30) { var w = Math.floor(days/7); var d = days%7; return w+'w'+(d>0?' '+d+'d':''); }
+  if (days < 365) { var mo = Math.floor(days/30); var rd = days%30; return mo+'mo'+(rd>0?' '+rd+'d':''); }
+  var yr = Math.floor(days/365); var rm = Math.floor((days%365)/30); return yr+'yr'+(rm>0?' '+rm+'mo':'');
+}
+// ==========================================================================
 // NUMBER FORMATTING
 // ==========================================================================
 // Currency display toggle: '$' or '' (no symbol)
@@ -1771,7 +1790,7 @@ function renderMain() {
   else if (currentView === 'trades')      mc.innerHTML = renderTradeLog();
   else if (currentView === 'calendar')    mc.innerHTML = renderCalendar();
   else if (currentView === 'calculators') mc.innerHTML = renderCalculators();
-  else if (currentView === 'analytics')   { mc.innerHTML = renderAnalytics(); setTimeout(buildAnalyticsCharts, 50); }
+  else if (currentView === 'analytics')   { mc.innerHTML = renderAnalytics(); setTimeout(buildAnalyticsCharts, 50); setTimeout(fetchSP500, 800); }
   else if (currentView === 'accounts')    mc.innerHTML = renderAccountsView();
   if (currentView === 'calculators') {
     setTimeout(function(){ renderPosSaved(); renderCompoundSaved(); renderAvgSaved(); }, 60);
@@ -2563,17 +2582,20 @@ function openTradeDetail(id) {
   if (!body) return;
   var tdS = 'padding:7px 0;color:var(--text3);width:130px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase';
   var tdV = 'padding:7px 0;font-weight:500;font-size:13px';
+  var tradeDays = calcTradeDuration(t);
   var rows = [
     ['Symbol', t.ticker], ['Direction', t.direction], ['Type', t.type||'—'], ['Status', t.status],
     ['Entry Date', fmtDate(t.entry_date)||'—'], ['Exit Date', fmtDate(t.exit_date)||'—'],
+    [(isOpen ? 'Open For' : 'Held For'), fmtDuration(tradeDays) + (tradeDays !== null ? '  (' + tradeDays + ' days)' : '')],
     ['Avg Entry', fmtPrice(avg)], ['Exit Price', t.exit ? fmtPrice(t.exit) : '—'],
     ['Total Shares', parseFloat(totalBought.toFixed(2))], ['Remaining', parseFloat(remainingQty.toFixed(2))],
     ['Fees', t.fees ? (t.fees_mode==='%' ? t.fees+'%' : '$'+parseFloat(t.fees).toFixed(2)) : '—'],
     ['Risk', t.risk ? '$'+parseFloat(t.risk).toFixed(2) : '—']
   ];
-  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
-    '<div class="stat-card" style="--accent:' + pnlColor(pnl) + '"><div class="stat-label">Net P&L</div><div class="stat-value" style="color:' + pnlColor(pnl) + '">' + fmtPnl(pnl) + '</div><div class="stat-sub" style="color:' + pnlColor(pnl) + ';font-family:var(--mono)">' + (invested > 0 ? (pnl/invested*100 >= 0 ? '+' : '') + (pnl/invested*100).toFixed(2) + '% of invested' : '') + '</div></div>' +
-    '<div class="stat-card"><div class="stat-label">Invested</div><div class="stat-value" style="color:var(--blue)">' + fmtMoney(invested) + '</div></div>' +
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">' +
+    '<div class="stat-card" style="--accent:' + pnlColor(pnl) + '"><div class="stat-label">Net P&L</div><div class="stat-value" style="color:' + pnlColor(pnl) + ';font-size:16px">' + fmtPnl(pnl) + '</div><div class="stat-sub" style="color:' + pnlColor(pnl) + ';font-family:var(--mono)">' + (invested > 0 ? (pnl/invested*100 >= 0 ? '+' : '') + (pnl/invested*100).toFixed(2) + '%' : '') + '</div></div>' +
+    '<div class="stat-card"><div class="stat-label">Invested</div><div class="stat-value" style="color:var(--blue);font-size:16px">' + fmtMoney(invested) + '</div></div>' +
+    '<div class="stat-card" style="--accent:var(--gold)"><div class="stat-label">' + (isOpen ? '&#9203; Open For' : '&#9200; Held For') + '</div><div class="stat-value" style="color:var(--gold);font-size:16px">' + fmtDuration(tradeDays) + '</div><div class="stat-sub">' + (tradeDays !== null ? tradeDays + ' calendar days' : '') + '</div></div>' +
   '</div>';
   html += '<table style="width:100%;border-collapse:collapse">';
   rows.forEach(function(r){ html += '<tr><td style="' + tdS + '">' + r[0] + '</td><td style="' + tdV + '">' + r[1] + '</td></tr>'; });
@@ -3715,6 +3737,8 @@ function renderAnalytics() {
     // Trade log summary table
     '<div class="panel"><div class="panel-header"><div class="panel-title">🏆 Top Performers</div></div>' +
       '<div class="table-wrap">' + renderTradesTable(closed.slice().sort(function(a,b){ return calcPnl(b)-calcPnl(a); }).slice(0,5)) + '</div></div>' +
+    renderDurationStats(closed) +
+    '<div class="panel" id="benchmarkPanel"><div class="panel-header"><div class="panel-title">&#128200; vs S&P 500 Benchmark</div></div><div class="panel-body" id="benchmarkBody">' + renderBenchmarkBody(totalPnl, totalInv) + '</div></div>' +
   '</div>';
 }
 
@@ -3748,6 +3772,163 @@ function buildAnalyticsCharts() {
     monthChart = new Chart(mc, {type:'bar', data:{labels:months, datasets:[{data:mVals, backgroundColor:mVals.map(function(v){return v>=0?'#4d9fff40':'#ff4d6d40';}), borderColor:mVals.map(function(v){return v>=0?'#4d9fff':'#ff4d6d';}), borderWidth:1}]}, options:cd});
   }
 }
+
+// ==========================================================================
+// DURATION STATS FOR ANALYTICS
+// ==========================================================================
+function renderDurationStats(closed) {
+  if (!closed.length) return '';
+  var durations = closed.map(function(t){ return calcTradeDuration(t); }).filter(function(d){ return d !== null; });
+  if (!durations.length) return '';
+  var avgDays = Math.round(durations.reduce(function(s,d){ return s+d; },0) / durations.length);
+  var maxDays = Math.max.apply(null, durations);
+  var minDays = Math.min.apply(null, durations);
+  var longestTrade = closed[durations.indexOf(maxDays)];
+  var shortestTrade = closed[durations.indexOf(minDays)];
+  return '<div class="panel"><div class="panel-header"><div class="panel-title">&#9203; Trade Duration</div></div>' +
+    '<div class="panel-body">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' +
+        '<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">' +
+          '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">AVG HOLD TIME</div>' +
+          '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--blue)">' + fmtDuration(avgDays) + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + avgDays + ' days avg</div>' +
+        '</div>' +
+        '<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">' +
+          '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">LONGEST TRADE</div>' +
+          '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--gold)">' + fmtDuration(maxDays) + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + (longestTrade ? longestTrade.ticker : '') + '</div>' +
+        '</div>' +
+        '<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">' +
+          '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">SHORTEST TRADE</div>' +
+          '<div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)">' + fmtDuration(minDays) + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + (shortestTrade ? shortestTrade.ticker : '') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div></div>';
+}
+
+// ==========================================================================
+// S&P 500 BENCHMARKING
+// ==========================================================================
+function renderBenchmarkBody(myPnl, myInv) {
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem('tl_sp500_cache') || 'null'); } catch(e) {}
+  var spReturn = null;
+  var spPrice = null;
+  var spBasePrice = null;
+  try {
+    var bm = JSON.parse(localStorage.getItem('tl_benchmark') || 'null');
+    if (bm) { spBasePrice = bm.basePrice; }
+  } catch(e) {}
+  if (cached && cached.price) { spPrice = cached.price; }
+  var myRoi = myInv > 0 ? (myPnl / myInv * 100) : null;
+  if (spPrice && spBasePrice && spBasePrice > 0) {
+    spReturn = ((spPrice - spBasePrice) / spBasePrice * 100);
+  }
+  var spPriceDisplay = spPrice ? spPrice.toFixed(2) : '—';
+  var lastFetch = cached && cached.time ? (new Date(cached.time)).toLocaleTimeString() : 'never';
+  var html =
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Compare your trading performance against the S&P 500 index over the same period.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+      '<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;border-left:3px solid var(--blue)">' +
+        '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">YOUR ROI</div>' +
+        '<div style="font-family:var(--mono);font-size:22px;font-weight:700;color:' + (myRoi !== null ? pnlColor(myRoi) : 'var(--text3)') + '">' + (myRoi !== null ? (myRoi >= 0 ? '+' : '') + myRoi.toFixed(2) + '%' : '—') + '</div>' +
+        '<div style="font-size:11px;color:var(--text3)">on invested capital</div>' +
+      '</div>' +
+      '<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;border-left:3px solid var(--gold)">' +
+        '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">S&P 500 RETURN</div>' +
+        '<div style="font-family:var(--mono);font-size:22px;font-weight:700;color:' + (spReturn !== null ? pnlColor(spReturn) : 'var(--text3)') + '">' + (spReturn !== null ? (spReturn >= 0 ? '+' : '') + spReturn.toFixed(2) + '%' : '—') + '</div>' +
+        '<div style="font-size:11px;color:var(--text3)">since your base price</div>' +
+      '</div>' +
+    '</div>';
+  if (myRoi !== null && spReturn !== null) {
+    var diff = myRoi - spReturn;
+    var beating = diff >= 0;
+    html += '<div style="background:' + (beating ? 'var(--green-bg)' : 'var(--red-bg)') + ';border-radius:8px;padding:12px;text-align:center;margin-bottom:14px">' +
+      '<div style="font-size:13px;font-weight:700;color:' + (beating ? 'var(--green)' : 'var(--red)') + '">' +
+        (beating ? '&#127942; You are BEATING the S&P 500 by +' + diff.toFixed(2) + '%' : '&#128561; You are TRAILING the S&P 500 by ' + diff.toFixed(2) + '%') +
+      '</div>' +
+    '</div>';
+  }
+  html +=
+    '<div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">' +
+        '<div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text3)">BASE PRICE (when you started)</div>' +
+        '<div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text3)">CURRENT PRICE (live)</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">' +
+        '<input id="sp_base_input" type="number" step="0.01" placeholder="e.g. 5500.00" value="' + (spBasePrice || '') + '" style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:9px 10px;font-size:13px;font-family:var(--mono);width:100%">' +
+        '<input id="sp_current_input" type="number" step="0.01" placeholder="Auto-fetched" value="' + (spPrice || '') + '" style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--blue);padding:9px 10px;font-size:13px;font-family:var(--mono);width:100%">' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-bottom:10px;font-family:var(--mono)">Last updated: ' + lastFetch + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<button class="btn btn-secondary btn-sm" onclick="fetchSP500()">&#128257; Refresh</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="saveBenchmarkBase()">&#128200; Compare</button>' +
+      '</div>' +
+    '</div>';
+  return html;
+}
+
+function fetchSP500() {
+  var body = document.getElementById('benchmarkBody');
+  if (body) body.style.opacity = '0.6';
+  var url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=1d';
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.timeout = 8000;
+  xhr.onload = function() {
+    try {
+      var data = JSON.parse(xhr.responseText);
+      var price = data.chart.result[0].meta.regularMarketPrice;
+      if (price) {
+        localStorage.setItem('tl_sp500_cache', JSON.stringify({price: price, time: new Date().toISOString()}));
+        showToast('S&P 500 live price: ' + price.toFixed(2), 'success');
+        refreshBenchmarkPanel();
+        var ci = document.getElementById('sp_current_input'); if (ci) ci.value = price.toFixed(2);
+      } else { showToast('Could not read S&P price', 'error'); }
+    } catch(e) { showToast('S&P fetch failed — check connection', 'error'); }
+    if (body) body.style.opacity = '1';
+  };
+  xhr.onerror = function() {
+    showToast('Offline — using cached S&P price', 'info');
+    if (body) body.style.opacity = '1';
+  };
+  xhr.ontimeout = function() {
+    showToast('Request timed out — using cached price', 'info');
+    if (body) body.style.opacity = '1';
+  };
+  xhr.send();
+}
+
+function saveBenchmarkBase() {
+  var inp = document.getElementById('sp_base_input');
+  var curInp = document.getElementById('sp_current_input');
+  if (!inp || !inp.value) { showToast('Enter the S&P base price first', 'error'); return; }
+  var val = parseFloat(inp.value);
+  if (isNaN(val) || val <= 0) { showToast('Enter a valid price', 'error'); return; }
+  localStorage.setItem('tl_benchmark', JSON.stringify({basePrice: val, savedAt: new Date().toISOString()}));
+  // If user manually typed a current price, save it too
+  if (curInp && curInp.value) {
+    var curVal = parseFloat(curInp.value);
+    if (!isNaN(curVal) && curVal > 0) {
+      localStorage.setItem('tl_sp500_cache', JSON.stringify({price: curVal, time: new Date().toISOString()}));
+    }
+  }
+  showToast('Saved! Comparing now...', 'success');
+  refreshBenchmarkPanel();
+}
+
+function refreshBenchmarkPanel() {
+  var trades;
+  if (filterAccountId === 'all') { trades = state.trades; }
+  else { trades = state.trades.filter(function(t){ return t.accountId === filterAccountId; }); }
+  var closed = trades.filter(function(t){ return t.status === 'closed'; });
+  var totalPnl = closed.reduce(function(s,t){ return s + calcPnl(t); }, 0);
+  var totalInv = closed.reduce(function(s,t){ return s + calcInvestedValue(t); }, 0);
+  var body = document.getElementById('benchmarkBody');
+  if (body) body.innerHTML = renderBenchmarkBody(totalPnl, totalInv);
+}
+
 
 
 function importCSV() {
