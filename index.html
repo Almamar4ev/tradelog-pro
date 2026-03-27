@@ -130,7 +130,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 /* ═══════════════════════════════════════════════════
    STATS
 ═══════════════════════════════════════════════════ */
-.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:border-color .2s,background .25s;}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue));}
 .stat-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:10px;font-weight:600;}
@@ -1337,6 +1337,38 @@ function calcPnl(t) {
 }
 
 // ==========================================================================
+// FEES CALCULATION
+// ==========================================================================
+function calcTradeFees(t) {
+  // Calculate actual fees paid for a single trade (closed portion only)
+  var total = 0;
+  var avg = calcAvgPrice(t);
+  var dir = t.direction === 'Long' ? 1 : -1;
+  // Partial closes fees
+  if (t.partial_closes) {
+    t.partial_closes.forEach(function(pc) {
+      var gross = (pc.price - avg) * pc.qty * dir;
+      total += calcFeesAmt(pc.fees, pc.fees_mode, gross);
+    });
+  }
+  // Final close fees (closed trades only)
+  if (t.status === 'closed') {
+    var totalPartialQty = 0;
+    if (t.partial_closes) t.partial_closes.forEach(function(pc){ totalPartialQty += pc.qty; });
+    var totalBoughtQty = t.original_qty || t.qty;
+    if (t.add_buys) t.add_buys.forEach(function(b){ totalBoughtQty += b.qty; });
+    if (totalPartialQty < totalBoughtQty - 0.0001) {
+      var remainQty = totalBoughtQty - totalPartialQty;
+      var gross = (t.exit - avg) * remainQty * dir;
+      total += calcFeesAmt(t.fees, t.fees_mode, gross);
+    }
+  }
+  return total;
+}
+function calcTotalFees(trades) {
+  return trades.reduce(function(s, t){ return s + calcTradeFees(t); }, 0);
+}
+// ==========================================================================
 // TRADE DURATION
 // ==========================================================================
 function calcTradeDuration(t) {
@@ -1834,6 +1866,7 @@ function renderDashboard() {
     statCard('Win Rate', wr + '%', closed.length + ' closed trades', 'var(--blue)') +
     statCard('Avg R:R', avgRr, 'Risk : Reward', 'var(--gold)') +
     statCard('Total Balance', currSym() + Math.abs(balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), 'Capital ' + (capital ? fmtMoney(capital) : 'not set') + '<br>+P&L', 'var(--purple)') +
+    statCard('Brokerage Fees', fmtMoney(calcTotalFees(trades)), closed.length + ' closed trades', 'var(--red)') +
   '</div>' +
   '<div class="charts-row">' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">📈 Equity Curve</div></div><div class="chart-wrap"><canvas id="equityChart"></canvas></div></div>' +
@@ -2085,6 +2118,7 @@ function renderAccountsList() {
 
         '</div>' +
           '<div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)">' + trades.length + ' trades · Win rate: ' + wr + '%</div>' +
+          '<div style="font-size:11px;color:var(--red);margin-top:2px;font-family:var(--mono)">Fees: ' + fmtMoney(calcTotalFees(trades)) + '</div>' +
         '</div>' +
         '<div style="text-align:right">' +
           '<div style="font-size:18px;font-weight:800;color:' + pnlColor(netPnl) + '">' + fmtPnl(netPnl) + '</div>' +
@@ -3711,6 +3745,7 @@ function renderAnalytics() {
       statCard('Profit Factor', pf, 'Gross win / loss', pf >= 1 ? 'var(--green)' : 'var(--red)') +
       statCard('Avg Win', fmtPnl(avgWin), 'Per winning trade', 'var(--green)') +
       statCard('Avg Loss', '-' + fmtMoney(avgLoss), 'Per losing trade', 'var(--red)') +
+      statCard('Brokerage Fees', fmtMoney(calcTotalFees(closed)), 'Total fees paid', 'var(--red)') +
     '</div>' +
     // Current streak + best/worst
     '<div class="stats-row">' +
