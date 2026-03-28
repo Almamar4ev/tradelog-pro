@@ -2022,7 +2022,7 @@ function renderDashboard() {
     '<div class="panel"><div class="panel-header"><div class="panel-title">🥧 Win / Loss</div></div><div class="chart-wrap" style="max-height:200px"><canvas id="wlChart"></canvas></div></div>' +
   '</div>' +
   '<div class="bottom-row">' +
-    '<div class="panel"><div class="panel-header"><div class="panel-title">📊 P&L by Symbol</div></div><div class="chart-wrap"><canvas id="symbolChart"></canvas></div></div>' +
+    '<div class="panel"><div class="panel-header" style="flex-direction:column;align-items:flex-start;gap:2px"><div class="panel-title">&#128202; P&L by Symbol</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)" id="symbolChartNote"></div></div><div class="chart-wrap"><canvas id="symbolChart"></canvas></div></div>' +
     '<div class="panel"><div class="panel-header"><div class="panel-title">📊 P&L by Type</div></div><div class="chart-wrap"><canvas id="typeChart"></canvas></div></div>' +
   '</div>' +
   '<div class="panel"><div class="panel-header"><div class="panel-title">📋 Recent Trades</div><button class="btn btn-secondary btn-sm" onclick="setView(\'trades\')">View All</button></div>' +
@@ -2051,7 +2051,7 @@ function buildCharts() {
   var run = 0, eqLabels = [], eqData = [];
   closed.forEach(function(t){ run += calcPnl(t); eqLabels.push(t.exit_date); eqData.push(+run.toFixed(2)); });
   var cd = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e2438',borderColor:'#252b3d',borderWidth:1,titleColor:'#9aa3be',bodyColor:'#e8ecf5'}}};
-  var gc = '#252b3d', tc = '#5a6380';
+  var gc = 'rgba(90,99,128,0.15)', tc = '#5a6380';
   function ax(){ return {ticks:{color:tc,font:{family:'IBM Plex Mono',size:8}},grid:{color:gc}}; }
   var el = document.getElementById('equityChart');
   if (el) { if (equityChart) equityChart.destroy(); var col = run>=0?'#00d68f':'#ff4d6d'; equityChart = new Chart(el,{type:'line',data:{labels:eqLabels,datasets:[{data:eqData,borderColor:col,backgroundColor:col+'20',tension:.3,fill:true,pointRadius:3}]},options:Object.assign({},cd,{scales:{x:Object.assign(ax(),{ticks:Object.assign(ax().ticks,{maxTicksLimit:6})}),y:ax()}})}); }
@@ -2060,10 +2060,28 @@ function buildCharts() {
   if (wl) { if (wlChart) wlChart.destroy(); wlChart = new Chart(wl,{type:'doughnut',data:{labels:['Win','Loss'],datasets:[{data:[wins2,closed.length-wins2],backgroundColor:['#00d68f','#ff4d6d'],borderWidth:0}]},options:Object.assign({},cd,{plugins:Object.assign({},cd.plugins,{legend:{display:true,position:'bottom',labels:{color:tc,font:{size:11}}}})})}); }
   var bySymbol = {}, byType = {};
   closed.forEach(function(t){ var p=calcPnl(t); bySymbol[t.ticker]=(bySymbol[t.ticker]||0)+p; byType[t.type||'Other']=(byType[t.type||'Other']||0)+p; });
+
+  // Symbol chart — Top 10 by absolute P&L value
   var ss = document.getElementById('symbolChart');
-  if (ss) { if (symbolChart) symbolChart.destroy(); var sk=Object.keys(bySymbol); symbolChart = new Chart(ss,{type:'bar',data:{labels:sk,datasets:[{data:sk.map(function(k){ return +bySymbol[k].toFixed(2); }),backgroundColor:sk.map(function(k){ return bySymbol[k]>=0?'#00d68f40':'#ff4d6d40'; }),borderColor:sk.map(function(k){ return bySymbol[k]>=0?'#00d68f':'#ff4d6d'; }),borderWidth:1}]},options:Object.assign({},cd,{scales:{x:ax(),y:ax()}})}); }
+  if (ss) {
+    if (symbolChart) symbolChart.destroy();
+    var skAll = Object.keys(bySymbol);
+    skAll.sort(function(a,b){ return Math.abs(bySymbol[b]) - Math.abs(bySymbol[a]); });
+    var sk = skAll.slice(0, 10);
+    var symNote = document.getElementById('symbolChartNote');
+    if (symNote) symNote.textContent = skAll.length > 10 ? 'Top 10 of ' + skAll.length + ' symbols · sorted by P&L' : skAll.length + ' symbols · sorted by P&L';
+    symbolChart = new Chart(ss,{type:'bar',data:{labels:sk,datasets:[{data:sk.map(function(k){ return +bySymbol[k].toFixed(2); }),backgroundColor:sk.map(function(k){ return bySymbol[k]>=0?'#00d68f40':'#ff4d6d40'; }),borderColor:sk.map(function(k){ return bySymbol[k]>=0?'#00d68f':'#ff4d6d'; }),borderWidth:1}]},options:Object.assign({},cd,{scales:{x:ax(),y:ax()}})});
+  }
+
+  // Type chart — all types (rarely more than 7-8), still sorted by absolute P&L
   var ts = document.getElementById('typeChart');
-  if (ts) { if (typeChart) typeChart.destroy(); var tk=Object.keys(byType); typeChart = new Chart(ts,{type:'bar',data:{labels:tk,datasets:[{data:tk.map(function(k){ return +byType[k].toFixed(2); }),backgroundColor:tk.map(function(k){ return byType[k]>=0?'#4d9fff40':'#ff4d6d40'; }),borderColor:tk.map(function(k){ return byType[k]>=0?'#4d9fff':'#ff4d6d'; }),borderWidth:1}]},options:Object.assign({},cd,{scales:{x:ax(),y:ax()}})}); }
+  if (ts) {
+    if (typeChart) typeChart.destroy();
+    var tkAll = Object.keys(byType);
+    tkAll.sort(function(a,b){ return Math.abs(byType[b]) - Math.abs(byType[a]); });
+    var tk = tkAll.slice(0, 10);
+    typeChart = new Chart(ts,{type:'bar',data:{labels:tk,datasets:[{data:tk.map(function(k){ return +byType[k].toFixed(2); }),backgroundColor:tk.map(function(k){ return byType[k]>=0?'#4d9fff40':'#ff4d6d40'; }),borderColor:tk.map(function(k){ return byType[k]>=0?'#4d9fff':'#ff4d6d'; }),borderWidth:1}]},options:Object.assign({},cd,{scales:{x:ax(),y:ax()}})});
+  }
 }
 
 // ==========================================================================
@@ -4241,11 +4259,11 @@ function fetchSP500() {
     if (body) body.style.opacity = '1';
   };
   xhr.onerror = function() {
-    showToast('Offline — using cached S&P price', 'info');
+    // silently use cached price when offline
     if (body) body.style.opacity = '1';
   };
   xhr.ontimeout = function() {
-    showToast('Request timed out — using cached price', 'info');
+    // silently use cached price on timeout
     if (body) body.style.opacity = '1';
   };
   xhr.send();
