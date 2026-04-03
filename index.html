@@ -2478,7 +2478,7 @@ function renderTransactionHistory(acc, showAll) {
     if (el) el.innerHTML = '';
     return;
   }
-  var sorted = acc.transactions.slice().reverse();
+  var sorted = acc.transactions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
   var limit = showAll ? sorted.length : 10;
   var visible = sorted.slice(0, limit);
   var hasMore = sorted.length > 10 && !showAll;
