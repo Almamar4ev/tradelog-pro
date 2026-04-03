@@ -2487,11 +2487,15 @@ function renderTransactionHistory(acc, showAll) {
     var sign = tx.type === 'deposit' ? '+' : '-';
     var typeLabel = tx.type === 'deposit' ? 'Deposit' : 'Withdraw';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">' +
-      '<div>' +
+      '<div style="flex:1">' +
         '<div style="font-size:12px;color:var(--text2);font-weight:500">' + typeLabel + '</div>' +
         '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:1px">' + fmtDate(tx.date) + '</div>' +
       '</div>' +
-      '<span style="color:' + color + ';font-family:var(--mono);font-weight:700;font-size:13px">' + sign + currSym() + parseFloat(tx.amount).toFixed(2) + '</span>' +
+      '<span style="color:' + color + ';font-family:var(--mono);font-weight:700;font-size:13px;margin-right:10px">' + sign + currSym() + parseFloat(tx.amount).toFixed(2) + '</span>' +
+      '<div style="display:flex;gap:4px">' +
+        '<button class="icon-btn edit" onclick="editTransaction(&apos;' + tx.id + '&apos;)" title="Edit" style="width:26px;height:26px;font-size:12px">&#9998;</button>' +
+        '<button class="icon-btn del" onclick="deleteTransaction(&apos;' + tx.id + '&apos;)" title="Delete" style="width:26px;height:26px;font-size:12px">&#128465;</button>' +
+      '</div>' +
     '</div>';
   }).join('');
   var seeAllBtn = hasMore
@@ -2500,6 +2504,75 @@ function renderTransactionHistory(acc, showAll) {
   el.innerHTML =
     '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-top:12px;margin-bottom:6px">RECENT TRANSACTIONS</div>' +
     rows + seeAllBtn;
+}
+
+function deleteTransaction(txId) {
+  var acc = state.accounts.find(function(a){ return a.id === editingAccountId; });
+  if (!acc || !acc.transactions) return;
+  var tx = acc.transactions.find(function(t){ return t.id === txId; });
+  if (!tx) return;
+  if (!window.confirm('Delete this ' + tx.type + ' of ' + currSym() + parseFloat(tx.amount).toFixed(2) + '?')) return;
+  // Reverse the effect on capital
+  acc.startingCapital = (acc.startingCapital || 0) + (tx.type === 'deposit' ? -tx.amount : tx.amount);
+  acc.transactions = acc.transactions.filter(function(t){ return t.id !== txId; });
+  var capEl = document.getElementById('f_acc_capital');
+  if (capEl) capEl.value = acc.startingCapital;
+  save();
+  renderTransactionHistory(acc, false);
+  showToast('Transaction deleted', 'success');
+}
+
+function editTransaction(txId) {
+  var acc = state.accounts.find(function(a){ return a.id === editingAccountId; });
+  if (!acc || !acc.transactions) return;
+  var tx = acc.transactions.find(function(t){ return t.id === txId; });
+  if (!tx) return;
+  // Show edit form inline
+  var el = document.getElementById('accTransactionHistory');
+  if (!el) return;
+  // Find the row and replace with edit form
+  var editHtml =
+    '<div id="txEditForm_' + txId + '" style="background:var(--surface2);border-radius:8px;padding:12px;margin-top:8px">' +
+      '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:10px">EDIT TRANSACTION</div>' +
+      '<div class="field" style="margin-bottom:8px">' +
+        '<label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--text2)">Amount</label>' +
+        '<input id="txEdit_amt_' + txId + '" type="number" step="0.01" value="' + parseFloat(tx.amount).toFixed(2) + '" style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px;font-size:13px;width:100%">' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:10px">' +
+        '<label style="font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--text2)">Date</label>' +
+        '<input id="txEdit_date_' + txId + '" type="date" value="' + tx.date + '" style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px;font-size:13px;width:100%">' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button onclick="saveEditTransaction(&apos;' + txId + '&apos;)" style="flex:1;padding:8px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Save</button>' +
+        '<button onclick="renderTransactionHistory(state.accounts.find(function(a){return a.id===editingAccountId;}),false)" style="flex:1;padding:8px;background:var(--surface3);border:1px solid var(--border2);color:var(--text2);border-radius:8px;font-size:13px;cursor:pointer">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  // Append edit form at bottom of history
+  var existing = document.getElementById('txEditForm_' + txId);
+  if (existing) { existing.remove(); return; }
+  el.insertAdjacentHTML('beforeend', editHtml);
+}
+
+function saveEditTransaction(txId) {
+  var acc = state.accounts.find(function(a){ return a.id === editingAccountId; });
+  if (!acc || !acc.transactions) return;
+  var tx = acc.transactions.find(function(t){ return t.id === txId; });
+  if (!tx) return;
+  var newAmt = parseFloat(document.getElementById('txEdit_amt_' + txId).value);
+  var newDate = document.getElementById('txEdit_date_' + txId).value;
+  if (!newAmt || newAmt <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  if (!newDate) { showToast('Enter a valid date', 'error'); return; }
+  // Adjust capital: remove old effect, apply new
+  var oldEffect = tx.type === 'deposit' ? tx.amount : -tx.amount;
+  var newEffect = tx.type === 'deposit' ? newAmt : -newAmt;
+  acc.startingCapital = (acc.startingCapital || 0) - oldEffect + newEffect;
+  tx.amount = newAmt;
+  tx.date = newDate;
+  var capEl = document.getElementById('f_acc_capital');
+  if (capEl) capEl.value = acc.startingCapital;
+  save();
+  renderTransactionHistory(acc, false);
+  showToast('Transaction updated', 'success');
 }
 
 function saveAccount() {
