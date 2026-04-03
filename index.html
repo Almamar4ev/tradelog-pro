@@ -855,6 +855,10 @@ setTimeout(function(){
               <label id="accTransactionLabel">Amount</label>
               <input id="f_acc_transaction" type="number" step="0.01" placeholder="0.00">
             </div>
+            <div class="field" style="margin-top:8px">
+              <label style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);font-weight:600">Date</label>
+              <input id="f_acc_tx_date" type="date">
+            </div>
             <button type="button" onclick="confirmTransaction()" style="width:100%;margin-top:8px;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Confirm</button>
           </div>
           <div id="accTransactionHistory"></div>
@@ -2445,6 +2449,8 @@ function accTransaction(type) {
   if (lbl) lbl.textContent = type === 'deposit' ? 'Deposit Amount' : 'Withdraw Amount';
   var inp = document.getElementById('f_acc_transaction');
   if (inp) { inp.value = ''; inp.focus(); }
+  var dateInp = document.getElementById('f_acc_tx_date');
+  if (dateInp && !dateInp.value) dateInp.value = today();
 }
 
 function confirmTransaction() {
@@ -2453,7 +2459,9 @@ function confirmTransaction() {
   var amt = parseFloat(document.getElementById('f_acc_transaction').value);
   if (!amt || amt <= 0) { showToast('Enter a valid amount', 'error'); return; }
   if (!acc.transactions) acc.transactions = [];
-  acc.transactions.push({id: Date.now().toString(), type: accTransactionType, amount: amt, date: today()});
+  var txDateEl = document.getElementById('f_acc_tx_date');
+  var txDate = (txDateEl && txDateEl.value) ? txDateEl.value : today();
+  acc.transactions.push({id: Date.now().toString(), type: accTransactionType, amount: amt, date: txDate});
   acc.startingCapital = (acc.startingCapital || 0) + (accTransactionType === 'deposit' ? amt : -amt);
   var capEl = document.getElementById('f_acc_capital');
   if (capEl) capEl.value = acc.startingCapital;
@@ -2464,17 +2472,34 @@ function confirmTransaction() {
   showToast((accTransactionType === 'deposit' ? 'Deposited' : 'Withdrawn') + ' $' + amt.toFixed(2), 'success');
 }
 
-function renderTransactionHistory(acc) {
+function renderTransactionHistory(acc, showAll) {
   var el = document.getElementById('accTransactionHistory');
-  if (!el || !acc.transactions || !acc.transactions.length) return;
-  var rows = acc.transactions.slice().reverse().slice(0,5).map(function(tx){
+  if (!el || !acc.transactions || !acc.transactions.length) {
+    if (el) el.innerHTML = '';
+    return;
+  }
+  var sorted = acc.transactions.slice().reverse();
+  var limit = showAll ? sorted.length : 10;
+  var visible = sorted.slice(0, limit);
+  var hasMore = sorted.length > 10 && !showAll;
+  var rows = visible.map(function(tx){
     var color = tx.type === 'deposit' ? 'var(--green)' : 'var(--red)';
     var sign = tx.type === 'deposit' ? '+' : '-';
-    return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">' +
-      '<span style="color:var(--text3)">' + tx.date + ' · ' + tx.type + '</span>' +
-      '<span style="color:' + color + ';font-family:var(--mono);font-weight:600">' + sign + '$' + parseFloat(tx.amount).toFixed(2) + '</span></div>';
+    var typeLabel = tx.type === 'deposit' ? 'Deposit' : 'Withdraw';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">' +
+      '<div>' +
+        '<div style="font-size:12px;color:var(--text2);font-weight:500">' + typeLabel + '</div>' +
+        '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:1px">' + fmtDate(tx.date) + '</div>' +
+      '</div>' +
+      '<span style="color:' + color + ';font-family:var(--mono);font-weight:700;font-size:13px">' + sign + currSym() + parseFloat(tx.amount).toFixed(2) + '</span>' +
+    '</div>';
   }).join('');
-  el.innerHTML = '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-top:8px;margin-bottom:4px">RECENT TRANSACTIONS</div>' + rows;
+  var seeAllBtn = hasMore
+    ? '<button onclick="renderTransactionHistory(state.accounts.find(function(a){return a.id===editingAccountId;}),true)" style="width:100%;margin-top:8px;padding:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer">See all ' + sorted.length + ' transactions</button>'
+    : (sorted.length > 10 ? '<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:6px;font-family:var(--mono)">Showing all ' + sorted.length + ' transactions</div>' : '');
+  el.innerHTML =
+    '<div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-top:12px;margin-bottom:6px">RECENT TRANSACTIONS</div>' +
+    rows + seeAllBtn;
 }
 
 function saveAccount() {
